@@ -23,8 +23,11 @@ module.exports = (env) => {
       failOnError: false,
       quiet: false,
     }),
-    new UglifyJsPlugin(),
   ];
+
+  if (DISTRIBUTION) {
+    plugins.push(new UglifyJsPlugin());
+  }
 
   return {
     resolve: {
