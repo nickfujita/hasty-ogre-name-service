@@ -1,0 +1,112 @@
+.token-info {
+  display: flex;
+  div {
+    font-weight: 800;
+    margin: 0.6rem;
+  }
+}
+
+.wallet-management {
+  display: flex;
+  width: 75%;
+  // flex-direction: column;
+  align-items: center;
+
+  .wallet-management-item {
+    flex: 1;
+    padding: 0 2rem;
+    border: 0.1rem solid rgb(0, 0, 0);
+    height: 12rem;
+    width: 12rem;
+
+    .input-field input {
+      width: 80%;
+    }
+
+    &.wallet-registration {
+      button {
+        margin: 1rem 0;
+      }
+    }
+
+    &.wallet-creation {
+      overflow: hidden;
+      white-space: nowrap;
+      margin: 1rem 0;
+
+      .key-wrapper {
+        overflow: hidden;
+        white-space: nowrap;
+        margin: 1rem 0;
+      }
+    }
+  }
+}
+
+.wallet {
+  border: 0.1rem solid rgb(0, 0, 0);
+  width: 75%;
+  padding: 0 3rem;
+  padding-bottom: 2rem;
+  margin: 1rem;
+  position: relative;
+
+  .remove-wallet {
+    position: absolute;
+    right: 0;
+    top: 0;
+    margin: 0;
+    background-color: rgb(255, 0, 0);
+    font-size: 1.5rem;
+    font-weight: 800;
+    border-left: solid rgb(0, 0, 0) 0.1rem;
+    border-bottom: solid rgb(0, 0, 0) 0.1rem;
+  }
+
+  .balances {
+    display: flex;
+    width: 100%;
+
+    .balance {
+      margin: 0 0.2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-weight: 600;
+    }
+  }
+
+  .input-field input {
+    width: 100%;
+  }
+
+  button {
+    margin: 0.3rem 0;
+  }
+}
+
+.name-service {
+  .names-list-item {
+    margin: 0.5rem 0;
+  }
+
+  .name-text {
+    margin-bottom: 0.3rem;
+    font-weight: 800;
+  }
+
+  .name-button-wrapper {
+    position: relative;
+  }
+
+  .name-button {
+    &.unregister {
+      position: absolute;
+      right: 0;
+      background: rgb(255, 0, 0);
+      border: solid rgb(0, 0, 0) 0.1rem;
+      font-weight: 700;
+    }
+  }
+}
