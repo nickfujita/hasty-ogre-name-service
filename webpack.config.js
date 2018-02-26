@@ -26,7 +26,20 @@ module.exports = (env) => {
   ];
 
   if (DISTRIBUTION) {
-    plugins.push(new UglifyJsPlugin());
+    plugins.push(new UglifyJsPlugin({
+      parallel: true,
+      sourceMap: true,
+      uglifyOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+          dead_code: true,
+        },
+        output: {
+          comments: false,
+        }
+      }
+    }));
   }
 
   return {
