@@ -17,6 +17,8 @@ class NameService():
 
         Notify(args)
 
+        # retreive the address associated with a given name
+        # anyone can call
         if operation == 'query':
             if len(args) != 1:
                 return arg_error
@@ -24,6 +26,9 @@ class NameService():
             name = args[0]
             return self.query(storage, name)
 
+        # retreive a list of names associated with this address
+        # anyone can call
+        # output: array as bytearray
         if operation == 'queryAddress':
             if len(args) != 1:
                 return arg_error
@@ -31,6 +36,8 @@ class NameService():
             address = args[0]
             return self.queryAddress(storage, address)
 
+        # remove a link between a given name and it's address
+        # can only be called by name owner
         if operation == 'unregister':
             if len(args) != 1:
                 return arg_error
@@ -38,6 +45,8 @@ class NameService():
             name = args[0]
             return self.unregister(storage, name)
 
+        # create a name to address association for a small fee
+        # can only be called by owner of address being registered
         if operation == 'register':
             if len(args) != 2:
                 return arg_error
@@ -46,6 +55,11 @@ class NameService():
             ownerAddress = args[1]
             return self.register(storage, token, nep5, name, ownerAddress)
 
+        # transfer of a name from owner to a new address
+        # needs to be called twice, once by owner, and once by requester
+        # first one to call creates transfer agreement
+        # secong one to call finalizes transfer agreement, and transfer is executed
+        # if both parties to not fulfil agreement, transfer will not take place
         if operation == 'transfer':
             if len(args) != 3:
                 return arg_error
@@ -214,16 +228,6 @@ class NameService():
         # didRegisterNewOwner = self.do_register(storage, name, newOwnerAddress)
         # print('do_transfer; register completed')
         # return didDeleteRecordKey and didUnregisterOriginalOwner and didRegisterNewOwner
-
-        print('do_transfer')
-        print('name')
-        print(name)
-        print('ownerAddress')
-        print(ownerAddress)
-        print('newOwnerAddress')
-        print(newOwnerAddress)
-        print('approvalRecordKey')
-        print(approvalRecordKey)
 
         didDeleteApprovalKey = self.deleteName(storage, approvalRecordKey)
 
