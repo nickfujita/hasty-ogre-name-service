@@ -5,6 +5,12 @@ A name service implementation built on the NEO blockchain. It serves to lower th
 - Unregister unwanted names
 - Submit requests for taken names
 
+### Video Walkthrough
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/waxZbYsOhco/0.jpg)](https://www.youtube.com/watch?v=waxZbYsOhco)
+
+[http://nickfujita.com/hasty-ogre-name-service/](http://nickfujita.com/hasty-ogre-name-service/)
+
 ### HONS token
 The native token for the Hasty Ogre Name Service, it is currently used to pay for miniscule fees for name registration and transfer. This helps to reduce spamming and hoarding of mass amounts of names in the short term, and will serve as the medium of exchange for a decentralized names trading platform in the near future.
 
@@ -39,8 +45,6 @@ The service is in a very early stage of development, and provides a mvp sandbox 
 - Name management: transfer & removal
 
 The interface screams MVP in it's current state, so be patient with transactions, as they are at the mercy of block times.
-
-### 
 
 ## Roadmap
 ##### Smart Contract

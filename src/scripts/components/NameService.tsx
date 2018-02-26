@@ -24,9 +24,7 @@ class NameService extends React.Component<NameServiceProps, any> {
   componentWillMount() {
     this.handleNameLookup = this.handleNameLookup.bind(this);
     this.handleRegister = this.handleRegister.bind(this);
-    this.handleUnregister = this.handleUnregister.bind(this);
     this.handleTransfer = this.handleTransfer.bind(this);
-    // queryAddress(this.props.address);
   }
 
   handleNameLookup() {
@@ -44,12 +42,8 @@ class NameService extends React.Component<NameServiceProps, any> {
     const {dispatch, address} = this.props;
     const {value} = this.nameInput;
     dispatch(registerName(value, address));
+    alert(`Your registration for the name: ${value} has been submitted to be associated with your address ${address}. Please wait until the next block to validate this transaction.`);
     this.clearRegistration();
-  }
-
-  handleUnregister(name) {
-    const {dispatch, address} = this.props;
-    dispatch(unregisterName(name, address));
   }
 
   handleTransfer() {
@@ -57,6 +51,7 @@ class NameService extends React.Component<NameServiceProps, any> {
     const {currentNameOwner} = this.state;
     const name = this.nameInput.value;
     name && currentNameOwner && dispatch(transferName(name, address, currentNameOwner, address));
+    alert(`Your request to transfer the name: ${name} from the current owner ${currentNameOwner} to your address ${address} has been submitted. Please wait until the next block to for confirmation. Please also have the owner of this name submit a transfer request as well if they haven't already done so.`);
     this.clearRegistration();
   }
 

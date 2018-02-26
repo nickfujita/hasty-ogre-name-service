@@ -48,7 +48,8 @@ class App extends React.Component<any, any> {
     return (
       <div className='index'>
         <h1>Hasty Ogre Name Service</h1>
-        <a href='https://github.com/nickfujita/hasty-ogre-name-service'>https://github.com/nickfujita/hasty-ogre-name-service</a>
+        <iframe width='560' height='315' src='https://www.youtube.com/embed/waxZbYsOhco?rel=0&amp;showinfo=0' frameBorder='0' allowFullScreen={true}/>
+        <h4><a href='https://github.com/nickfujita/hasty-ogre-name-service'>https://github.com/nickfujita/hasty-ogre-name-service</a></h4>
         {this.renderTokenInfo()}
         <button
           className='clear-cache'

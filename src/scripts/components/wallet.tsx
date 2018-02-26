@@ -45,6 +45,7 @@ class Wallet extends React.Component<WalletProps, any> {
     const neoAmount = this.neoHonsFaucetInput.value;
     const gasAmount = this.gasHonsFaucetInput.value;
     this.props.dispatch(mintTokens(this.props.address, neoAmount, gasAmount));
+    alert(`Your request to exchange NEO/GAS for HOM has been submitted. Please wait until the next block to for a confirmation.`);
 
     this.neoHonsFaucetInput.value = null;
     this.gasHonsFaucetInput.value = null;
@@ -70,6 +71,8 @@ class Wallet extends React.Component<WalletProps, any> {
     this.props.dispatch(sendAssets(fromAddr, toAddr, neoAmount, gasAmount));
     this.props.dispatch(sendHons(fromAddr, toAddr, honsAmount));
 
+    alert(`Your request to send NEO/GAS/HONS to ${toAddr}. Please wait until the next block to for a confirmation.`);
+    this.sendAddress.value = null;
     this.neoSendInput.value = null;
     this.gasSendInput.value = null;
     this.honsSendInput.value = null;
@@ -119,8 +122,8 @@ class Wallet extends React.Component<WalletProps, any> {
       <div>
         <h3>Exchange NEO/GAS for HONS</h3>
         <div>
-          {this.renderInputField('NEO: ', 'neoHonsFaucetInput')}
-          {this.renderInputField('GAS: ', 'gasHonsFaucetInput')}
+          {this.renderInputField('NEO: 400 HONS per NEO', 'neoHonsFaucetInput')}
+          {this.renderInputField('GAS: 200 HONS per GAS', 'gasHonsFaucetInput')}
           <button onClick={this.submitHonsFaucet}>Send</button>
         </div>
       </div>

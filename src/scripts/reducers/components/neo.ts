@@ -16,7 +16,6 @@ const initialWalletsRaw = localStorage.getItem(storageKey);
 const initialWallets = initialWalletsRaw && JSON.parse(initialWalletsRaw);
 
 // AK2nJJpJr6o664CWJKi1QRXjqeic2zRp8y: 'KxDgvEKzgSBPPfuVfw67oPQBSjidEiqTHURKSDL1R7yGaGYAeYnr', // 100m
-// AcPcNXsmXZqVCHuup1wRt2dgiLqVBZ1ciU: 'L5aCgCwXDL7oV8VN1xbsM7oT4uQyhqFuGFKaZkqHrbtddCAuJxj7',
 // AHp8Hagca8aZyY2VNvL2SPDgZV9aDcJFWF: 'L1MJ1tN6FUF3EZY3hikrZzYawtpUn2NmTfVT76WGyLZSrMmJPbAN',
 
 const initialState = {
