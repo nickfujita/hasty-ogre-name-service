@@ -35,11 +35,11 @@ module.exports = (env) => {
     },
     entry: ['./src/index'],
     output: {
-      path: path.join(__dirname, 'build'),
+      path: path.join(__dirname, DISTRIBUTION ? 'docs' : 'build'),
       filename: 'bundle.js',
     },
     devServer: {
-      contentBase: path.join(__dirname, 'build'),
+      contentBase: path.join(__dirname, DISTRIBUTION ? 'docs' : 'build'),
       port: 9000,
       compress: false,
       https: false,

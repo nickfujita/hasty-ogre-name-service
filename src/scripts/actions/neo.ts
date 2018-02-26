@@ -49,6 +49,9 @@ function fetchNames(address) {
   return (dispatch, getState) => {
     queryAddress(address)
     .then(names => {
+      if (!names) {
+        return;
+      }
       const {walletNames} = getState().neo;
       const currentNames = walletNames[address];
       if (!isEqual(currentNames, names)) {

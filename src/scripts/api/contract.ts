@@ -57,14 +57,14 @@ export function invoke(fromAccount: Account, scriptHash, operation, rawArgs, int
 }
 
 function testInvoke(vmScript) {
-  return api.getRPCEndpointFrom({
+  return (api as any).fillUrl({
     net: getNet(),
     address: '',
-  }, api.neonDB)
-  .then(url => {
+  })
+  .then(config => {
     const script = rpc.Query.invokeScript(vmScript);
-    console.log('invokeScript', script);
-    const execution = script.execute(url);
+    console.log('invokeScript', config.url);
+    const execution = script.execute(config.url);
     console.log('execute', execution);
     return execution;
   });
