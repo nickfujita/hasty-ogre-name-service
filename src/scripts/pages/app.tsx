@@ -48,6 +48,7 @@ class App extends React.Component<any, any> {
     return (
       <div className='index'>
         <h1>Hasty Ogre Name Service</h1>
+        <a href='https://github.com/nickfujita/hasty-ogre-name-service'>https://github.com/nickfujita/hasty-ogre-name-service</a>
         {this.renderTokenInfo()}
         <button
           className='clear-cache'
