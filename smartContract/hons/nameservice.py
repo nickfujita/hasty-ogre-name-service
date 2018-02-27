@@ -3,7 +3,6 @@ from hons.utils.storage import StorageAPI
 from hons.token.nep5 import NEP5Handler
 from hons.token.honstoken import Token
 from hons.utils.serialization import deserialize_bytearray, serialize_array, serialize_var_length_item
-from hons.utils.list import push, delete
 
 class NameService():
 
@@ -238,7 +237,7 @@ class NameService():
             return False
         else:
             prevOwnerAddressNameList = deserialize_bytearray(prevOwnerAddressNameList)
-            prevOwnerAddressNameList = delete(prevOwnerAddressNameList, name)
+            prevOwnerAddressNameList = prevOwnerAddressNameList.remove(name)
 
         if len(prevOwnerAddressNameList) == 0:
             didUpdatePrevOwnerList = self.deleteName(storage, ownerAddress)
@@ -257,7 +256,7 @@ class NameService():
         else:
             newOwnerAddressNameList = deserialize_bytearray(newOwnerAddressNameList)
 
-        newOwnerAddressNameList = push(newOwnerAddressNameList, name)
+        newOwnerAddressNameList = newOwnerAddressNameList.append(name)
         serializedList = serialize_array(newOwnerAddressNameList)
         didUpdateNewOwnerList = self.putName(storage, newOwnerAddress, serializedList)
 
@@ -281,7 +280,7 @@ class NameService():
         else:
             addressNameList = deserialize_bytearray(addressNameList)
 
-        addressNameList = push(addressNameList, name)
+        addressNameList = addressNameList.append(name)
         serializedList = serialize_array(addressNameList)
         putListSuccess = self.putName(storage, newOwnerAddress, serializedList)
         putNameSuccess = self.putName(storage, name, newOwnerAddress)
@@ -300,7 +299,7 @@ class NameService():
             return False
         else:
             addressNameList = deserialize_bytearray(addressNameList)
-            addressNameList = delete(addressNameList, name)
+            addressNameList = addressNameList.remove(name)
 
         if len(addressNameList) == 0:
             updateListSuccess = self.deleteName(storage, ownerAddress)
