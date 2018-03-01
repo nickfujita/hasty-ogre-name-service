@@ -7,7 +7,7 @@ export default function configureStore(initialState?) {
 
   const middleware = [
     thunk,
-    logger,
+    // logger,
   ];
 
   const createStoreWithMiddleware = applyMiddleware(...middleware)(createStore);

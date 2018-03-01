@@ -156,27 +156,7 @@ export function queryName(name) {
   return (dispatch, getState) => {
     nameService.queryName(name)
     .then(res => {
-      console.log('nicktest; queryName', res);
-      dispatch(updateNameQueryResult(res));
-    });
-  };
-}
-
-export function registerName(name) {
-  return (dispatch, getState) => {
-    const parsedMethod = sc.ContractParam.string('query');
-    const parsedName = sc.ContractParam.string(name);
-    const honsTokenAddress = nep5Tokens.hons;
-    readInvoke(honsTokenAddress, 'NameServiceInvoke', [parsedMethod, parsedName])
-    .then(res => {
-      if (!!res) {
-        res = u.reverseHex(res);
-        res = wallet.getAddressFromScriptHash(res);
-      }
-      return res;
-    })
-    .then(res => {
-      console.log('nicktest; queryName', res);
+      // console.log('nicktest; queryName', res);
       dispatch(updateNameQueryResult(res));
     });
   };

@@ -12,7 +12,7 @@ export function checkBalance(address: string): Promise<any> {
     return balance;
   })
   .catch(error => {
-    console.log('error', error);
+    // console.log('error', error);
   });
 }
 
@@ -35,13 +35,13 @@ export function sendAsset(fromAccount: Account, instents: Neon.tx.TransactionOut
     privateKey: fromAccount.privateKey,
     intents: instents,
   };
-  console.log('sendAsset; inside;', config);
+  // console.log('sendAsset; inside;', config);
   return api.sendAsset(config)
   .then((config: api.apiConfig) => {
-    console.log('success', config.response);
+    // console.log('success', config.response);
   })
   .catch(config => {
-    console.log('error', config);
+    // console.log('error', config);
   });
 }
 

@@ -31,7 +31,7 @@ module.exports = (env) => {
       sourceMap: true,
       uglifyOptions: {
         compress: {
-          drop_console: true,
+          // drop_console: true,
           drop_debugger: true,
           dead_code: true,
         },

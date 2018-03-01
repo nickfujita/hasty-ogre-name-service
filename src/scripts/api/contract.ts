@@ -8,14 +8,14 @@ export function readInvoke(scriptHash, operation, rawArgs): Promise<any> {
 
   return testInvoke(vmScript)
   .then(response => {
-    console.log('success', response);
+    // console.log('success', response);
     const stack = response.result.stack;
     const result = stack[stack.length - 1];
-    console.log('success; result', result);
+    console.log('success; result', stack.length, stack);
     return result && result.value;
   })
   .catch(error => {
-    console.log('error', error);
+    // console.log('error', error);
   });
 }
 
@@ -49,10 +49,10 @@ export function invoke(fromAccount: Account, scriptHash, operation, rawArgs, int
   //   return api.doInvoke(config);
   // })
   .then((config: api.apiConfig) => {
-    console.log('success', config.response);
+    // console.log('success', config.response);
   })
   .catch(config => {
-    console.log('error', config);
+    // console.log('error', config);
   });
 }
 
@@ -63,9 +63,9 @@ function testInvoke(vmScript) {
   })
   .then(config => {
     const script = rpc.Query.invokeScript(vmScript);
-    console.log('invokeScript', config.url);
+    // console.log('invokeScript', config.url);
     const execution = script.execute(config.url);
-    console.log('execute', execution);
+    // console.log('execute', execution);
     return execution;
   });
 }

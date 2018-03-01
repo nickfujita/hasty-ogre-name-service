@@ -21,7 +21,11 @@ export function queryAddress(address): Promise<any> {
   const parsedAddress = sc.ContractParam.byteArray(address, 'address');
   const honsTokenAddress = nep5Tokens.hons;
   return readInvoke(honsTokenAddress, 'NameServiceInvoke', [parsedMethod, parsedAddress])
-  .then(res => res && res.map && res.map(item => u.hexstring2str(item.value)));
+  .then(res => {
+    const parsedResponse = res && res.map && res.map(item => u.hexstring2str(item.value));
+    console.log('queryAddress; ', address, res, parsedResponse);
+    return parsedResponse;
+  });
 }
 
 export function register(name, addressObj) {

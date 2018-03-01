@@ -14,9 +14,9 @@ let balanceRefresher;
 
 export function initNeon() {
   return (dispatch, getState) => {
-    // setNet('http://127.0.0.1:5000');
+    setNet('http://127.0.0.1:5000');
     dispatch(udpateAddressInfo());
-    balanceRefresher = setInterval(() => dispatch(udpateAddressInfo()), 5000);
+    balanceRefresher = setInterval(() => dispatch(udpateAddressInfo()), 2000);
     dispatch(fetchTokenDetails(nep5Tokens.hons));
   };
 }
@@ -25,20 +25,20 @@ export function udpateAddressInfo() {
   return (dispatch, getState) => {
     const { wallets } = getState().neo;
     Object.keys(wallets).forEach(address => {
-      Promise.all([
-        dispatch(fetchBalance(address)),
-        dispatch(fetchAllTokenBalances(address)),
-      ])
-      .then(results => {
-        const assets = results[0];
-        const tokens = results[1];
-        const combinedBalances = {...assets, ...tokens};
-
-        const wallet = getState().neo.walletBalances[address];
-        if (!isEqual(wallet, combinedBalances)) {
-          dispatch(updateWalletBalance(address, combinedBalances));
-        }
-      });
+      // Promise.all([
+      //   dispatch(fetchBalance(address)),
+      //   dispatch(fetchAllTokenBalances(address)),
+      // ])
+      // .then(results => {
+      //   const assets = results[0];
+      //   const tokens = results[1];
+      //   const combinedBalances = {...assets, ...tokens};
+      //
+      //   const wallet = getState().neo.walletBalances[address];
+      //   if (!isEqual(wallet, combinedBalances)) {
+      //     dispatch(updateWalletBalance(address, combinedBalances));
+      //   }
+      // });
 
       dispatch(fetchNames(address));
     });
@@ -108,7 +108,7 @@ export function submitSend(address: string, neoAmount: number, gasAmount: number
       address,
       privateKey: wallets[address],
     };
-    console.log('sendAsset;', intents, fromAccount);
+    // console.log('sendAsset;', intents, fromAccount);
     sendAsset(fromAccount, intents);
   };
 }
@@ -142,7 +142,7 @@ export function sendAssets(fromAddress: string, toAddress: string, neoAmount: nu
       address: fromAddress,
       privateKey: wallets[fromAddress],
     };
-    console.log('sendAsset;', intents, fromAccount);
+    // console.log('sendAsset;', intents, fromAccount);
     sendAsset(fromAccount, intents);
   };
 }

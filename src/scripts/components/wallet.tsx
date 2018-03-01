@@ -3,7 +3,7 @@ import * as Redux from 'redux';
 import { bindActionCreators } from 'redux';
 import { connect } from 'react-redux';
 import { sendAssets } from '../actions/neo';
-import { mintTokens, sendHons, registerName } from '../actions/nep5';
+import { mintTokens, sendHons } from '../actions/nep5';
 import { queryName } from '../api/nameService';
 import NameService from './NameService';
 import { removeWallet } from '../actions/app';
