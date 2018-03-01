@@ -47,3 +47,21 @@ export function transfer(name, callerAccountObj, fromAddress, toAddress) {
   const honsTokenAddress = nep5Tokens.hons;
   invoke(callerAccountObj, honsTokenAddress, 'NameServiceInvoke', [parsedMethod, parsedName, scFromAddress, scToAddress], [], 1);
 }
+
+export function preApproveTransfer(name, callerAccountObj, fromAddress, toAddress) {
+  const parsedMethod = sc.ContractParam.string('preApproveTransfer');
+  const parsedName = sc.ContractParam.string(name);
+  const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
+  const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
+  const honsTokenAddress = nep5Tokens.hons;
+  invoke(callerAccountObj, honsTokenAddress, 'NameServiceInvoke', [parsedMethod, parsedName, scFromAddress, scToAddress]);
+}
+
+export function requestTransfer(name, callerAccountObj, fromAddress, toAddress) {
+  const parsedMethod = sc.ContractParam.string('requestTransfer');
+  const parsedName = sc.ContractParam.string(name);
+  const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
+  const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
+  const honsTokenAddress = nep5Tokens.hons;
+  invoke(callerAccountObj, honsTokenAddress, 'NameServiceInvoke', [parsedMethod, parsedName, scFromAddress, scToAddress]);
+}

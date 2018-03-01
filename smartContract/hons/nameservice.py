@@ -68,6 +68,24 @@ class NameService():
             newOwnerAddress = args[2]
             return self.transfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
 
+        if operation == 'preApproveTransfer':
+            if len(args) != 3:
+                return arg_error
+
+            name = args[0]
+            ownerAddress = args[1]
+            newOwnerAddress = args[2]
+            return self.preApproveTransfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+
+        if operation == 'requestTransfer':
+            if len(args) != 3:
+                return arg_error
+
+            name = args[0]
+            ownerAddress = args[1]
+            newOwnerAddress = args[2]
+            return self.requestTransfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+
 
     def query(self, storage: StorageAPI, name):
         return self.getName(storage, name)
@@ -121,8 +139,113 @@ class NameService():
         print('register; fees paid, record registration')
         return self.do_register(storage, name, ownerAddress)
 
+    def preApproveTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
+        print('preApproveTransfer')
+
+        if ownerAddress == newOwnerAddress:
+            print('transfer; ownerAddress and newOwnerAddress are the same')
+            return False
+
+        if not CheckWitness(ownerAddress):
+            print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
+            return False
+
+        currentOwnerAddress = self.getName(storage, name)
+        if not currentOwnerAddress:
+            print('transfer; name record is empty, please register instead')
+            return False
+
+        if currentOwnerAddress != ownerAddress:
+            print('transfer; contract caller is not owner of name record')
+            return False
+
+        approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
+        approvalRecordRaw = self.getName(storage, approvalRecordKey)
+
+        if not approvalRecordRaw:
+            print('transfer; no approval record, create one with approval from owner')
+            feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+            if feesCollected:
+                valueRaw = [True, False]
+                value = serialize_array(valueRaw)
+                return self.putName(storage, approvalRecordKey, value)
+            return False
+
+        print('approvalRecordRaw')
+        # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
+        approvalRecord = deserialize_bytearray(approvalRecordRaw)
+        print('approvalRecord')
+        ownerApproves = approvalRecord[0]
+        print('ownerApproves')
+        newOwnerApproves = approvalRecord[1]
+        print('newOwnerApproves')
+
+        if ownerApproves and not newOwnerApproves:
+            print('transfer; owner pre approval already created, but waiting for new owner')
+            return False
+
+        elif not ownerApproves and newOwnerApproves:
+            print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
+            feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+            if feesCollected:
+                return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+            return False
+
+        return False
+
+    def requestTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
+        print('transfer')
+        isNewOwnerAddress = CheckWitness(newOwnerAddress)
+
+        if not isNewOwnerAddress:
+            print('transfer; contract caller is not the same as new owner')
+            return False
+
+        currentOwnerAddress = self.getName(storage, name)
+
+        if not currentOwnerAddress:
+            print('transfer; name record is empty, please register instead')
+            return False
+
+        approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
+        approvalRecordRaw = self.getName(storage, approvalRecordKey)
+
+        if not approvalRecordRaw:
+            print('transfer; no approval record, create one with approval from new owner')
+            feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
+            if feesCollected:
+                valueRaw = [False, True]
+                value = serialize_array(valueRaw)
+                return self.putName(storage, approvalRecordKey, value)
+            return False
+
+        print('approvalRecordRaw')
+        # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
+        approvalRecord = deserialize_bytearray(approvalRecordRaw)
+        print('approvalRecord')
+        ownerApproves = approvalRecord[0]
+        print('ownerApproves')
+        newOwnerApproves = approvalRecord[1]
+        print('newOwnerApproves')
+
+        if not ownerApproves and newOwnerApproves:
+            print('transfer; new owner pre approval already created, but waiting for current owner')
+            return False
+
+        if ownerApproves and not newOwnerApproves:
+            print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
+            feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
+            if feesCollected:
+                print('feesCollected => do_transfer')
+                print(approvalRecordKey)
+                return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+            return False
+
+        return False
+
 
     def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
+        Notify('DEPRECATED: please use preApproveTransfer when calling from name owner and requestTransfer when calling from requester. This consolidated transfer operation is too heavy')
         print('transfer')
         isOwnerAddress = CheckWitness(ownerAddress)
         isNewOwnerAddress = CheckWitness(newOwnerAddress)
@@ -218,15 +341,6 @@ class NameService():
 
 
     def do_transfer(self, storage: StorageAPI, name, ownerAddress, newOwnerAddress, approvalRecordKey):
-        # print('do_transfer')
-        # print(approvalRecordKey)
-        # didDeleteRecordKey = self.deleteName(storage, approvalRecordKey)
-        # print('do_transfer; delete approvalRecordKey completed')
-        # didUnregisterOriginalOwner = self.do_unregister(storage, name, ownerAddress)
-        # print('do_transfer; unregister completed')
-        # didRegisterNewOwner = self.do_register(storage, name, newOwnerAddress)
-        # print('do_transfer; register completed')
-        # return didDeleteRecordKey and didUnregisterOriginalOwner and didRegisterNewOwner
 
         didDeleteApprovalKey = self.deleteName(storage, approvalRecordKey)
 

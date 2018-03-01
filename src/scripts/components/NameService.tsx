@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as Redux from 'redux';
 import { registerName, unregisterName, transferName } from '../actions/nameService';
-import { queryName, queryAddress } from '../api/nameService';
+import { queryName } from '../api/nameService';
 import RegisteredName from './RegisteredName';
 
 interface NameServiceProps extends React.Props<any> {
