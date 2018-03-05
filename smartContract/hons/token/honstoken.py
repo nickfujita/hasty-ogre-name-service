@@ -1,78 +1,79 @@
-from hons.utils.storage import StorageAPI
+from boa.interop.Neo.Storage import *
 
-class Token():
+"""
+Basic settings for an NEP5 Token and crowdsale
+"""
+
+TOKEN_NAME = 'Hasty Ogre Name Service Token'
+
+TOKEN_SYMBOL = 'HONS'
+
+TOKEN_DECIMALS = 8
+
+# This is the script hash of the address for the owner of the token
+# This can be found in ``neo-python`` with the walet open, use ``wallet`` command
+TOKEN_OWNER = b'#\xba\'\x03\xc52c\xe8\xd6\xe5"\xdc2 39\xdc\xd8\xee\xe9'
+
+TOKEN_CIRC_KEY = b'in_circulation'
+
+TOKEN_TOTAL_SUPPLY = 100_000_000 * 100_000_000  # 10m total supply * 10^8 ( decimals)
+
+TOKEN_INITIAL_AMOUNT = 3_000_000 * 100_000_000  # 2.5m to owners * 10^8
+
+# for now assume 1 dollar per token, and one neo = 40 dollars * 10^8
+TOKENS_PER_NEO = 400 * 100_000_000
+
+# for now assume 1 dollar per token, and one gas = 20 dollars * 10^8
+TOKENS_PER_GAS = 200 * 100_000_000
+
+# maximum amount you can mint in the limited round ( 500 neo/person * 400 Tokens/NEO * 10^8 )
+MAX_EXCHANGE_LIMITED_ROUND = 500 * 400 * 100_000_000
+
+# when to start the crowdsale
+BLOCK_SALE_START = 900
+
+# when to end the initial limited round
+# NEVER, not that it matters on testnet since people can make new addresses
+# and kyc is disabled in this contract
+LIMITED_ROUND_END = 999999999999
+
+KYC_KEY = b'kyc_ok'
+
+LIMITED_ROUND_KEY = b'r1'
+
+def crowdsale_available_amount(ctx):
     """
-    Basic settings for an NEP5 Token and crowdsale
+
+    :return: int The amount of tokens left for sale in the crowdsale
     """
 
-    name = 'Hasty Ogre Name Service Token'
+    in_circ = Get(ctx, TOKEN_CIRC_KEY)
 
-    symbol = 'HONS'
+    available = TOKEN_TOTAL_SUPPLY - in_circ
 
-    decimals = 8
-
-    # This is the script hash of the address for the owner of the token
-    # This can be found in ``neo-python`` with the walet open, use ``wallet`` command
-    owner = b'#\xba\'\x03\xc52c\xe8\xd6\xe5"\xdc2 39\xdc\xd8\xee\xe9'
-
-    in_circulation_key = b'in_circulation'
-
-    total_supply = 100000000 * 100000000  # 10m total supply * 10^8 ( decimals)
-
-    initial_amount = 3000000 * 100000000  # 2.5m to owners * 10^8
-
-    # for now assume 1 dollar per token, and one neo = 40 dollars * 10^8
-    tokens_per_neo = 400 * 100000000
-
-    # for now assume 1 dollar per token, and one gas = 20 dollars * 10^8
-    tokens_per_gas = 200 * 100000000
-
-    # maximum amount you can mint in the limited round ( 500 neo/person * 400 Tokens/NEO * 10^8 )
-    max_exchange_limited_round = 500 * 400 * 100000000
-
-    # when to start the crowdsale
-    block_sale_start = 900
-
-    # when to end the initial limited round
-    # NEVER, not that it matters on testnet since people can make new addresses
-    # and kyc is disabled in this contract
-    limited_round_end = 999999999999
+    return available
 
 
-    def crowdsale_available_amount(self, storage:StorageAPI):
-        """
+def add_to_circulation(ctx, amount: int):
+    """
+    Adds an amount of token to circlulation
 
-        :return: int The amount of tokens left for sale in the crowdsale
-        """
+    :param amount: int the amount to add to circulation
+    :param storage:StorageAPI A StorageAPI object for storage interaction
+    """
+    current_supply = Get(ctx, TOKEN_CIRC_KEY)
 
-        in_circ = storage.get(self.in_circulation_key)
+    current_supply += amount
 
-        available = self.total_supply - in_circ
-
-        return available
-
-
-    def add_to_circulation(self, amount:int, storage:StorageAPI):
-        """
-        Adds an amount of token to circlulation
-
-        :param amount: int the amount to add to circulation
-        :param storage:StorageAPI A StorageAPI object for storage interaction
-        """
-        current_supply = storage.get(self.in_circulation_key)
-
-        current_supply += amount
-
-        storage.put(self.in_circulation_key, current_supply)
+    Put(ctx, TOKEN_CIRC_KEY, current_supply)
 
 
+def get_circulation(ctx):
+    """
+    Get the total amount of tokens in circulation
 
-    def get_circulation(self, storage:StorageAPI):
-        """
-        Get the total amount of tokens in circulation
-
-        :param storage:StorageAPI A StorageAPI object for storage interaction
-        :return:
-            int: Total amount in circulation
-        """
-        return storage.get(self.in_circulation_key)
+    :param storage:StorageAPI A StorageAPI object for storage interaction
+    :return:
+        int: Total amount in circulation
+    """
+    return Get(ctx, TOKEN_CIRC_KEY)

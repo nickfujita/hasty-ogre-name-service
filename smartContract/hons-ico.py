@@ -1,11 +1,11 @@
-from boa.blockchain.vm.Neo.Runtime import GetTrigger, Notify, CheckWitness
-from boa.blockchain.vm.Neo.TriggerType import Application, Verification
-from hons.utils.storage import StorageAPI
-from hons.token.honstoken import Token
-from hons.utils.transaction import Attachments,get_asset_attachments
-from hons.token.nep5 import NEP5Handler
-from hons.token.crowdsale import Crowdsale
-from hons.nameservice import NameService
+from boa.interop.Neo.Runtime import GetTrigger, Notify, CheckWitness
+from boa.interop.Neo.TriggerType import Application, Verification
+from boa.interop.Neo.Storage import *
+from hons.token.crowdsale import *
+from hons.token.honstoken import *
+from hons.token.nep5 import *
+from hons.utils.transaction import *
+from hons.nameservice import *
 
 # input types 0710 (string, array)
 # return type 05 (bytearray)
@@ -14,19 +14,17 @@ def Main(operation, args):
     # it's important to instanciate these in the start of the contract
     # I previously instancited each within each of the subfiles,
     # but started to run into issues executing the contract properly
+    ctx = GetContext()
     trigger = GetTrigger()
-    token = Token()
-    storage = StorageAPI()
 
     # In the case that a user sends NEO/GAS to this contract address
     # trigger will be set to Verification, and enter this flow
-    if trigger == Verification:
+    if trigger == Verification():
         # In the case that the contract owner is sending or receiving
         # from the contract address, we will always approve
         # This allows the contract owner to manage assets received
         # by the contract
-        is_owner = CheckWitness(token.owner)
-        if is_owner:
+        if CheckWitness(TOKEN_OWNER):
             return True
 
         # Calls helper to pull transaction information in an object
@@ -37,48 +35,44 @@ def Main(operation, args):
         # users may also send neo/gas to the contract in the case of a
         # crowd sale. In this case we can handle their transactions of
         # whether or not to accept the amount or refund
-        crowdsale = Crowdsale()
-        return crowdsale.can_exchange(token, attachments, storage, True)
+        return can_exchange(ctx, attachments, True)
 
     # this is called when users invoke a contract directly
-    elif trigger == Application:
+    elif trigger == Application():
 
         if operation != None:
 
             # handle all nep5 transactions first,
             # since these are commonly accepted operations we
             # do not want to prefix this like we are below for the nameServices
-            nep = NEP5Handler()
 
-            for op in nep.get_methods():
+            for op in NEP5_METHODS:
                 if operation == op:
-                    return nep.handle_nep51(operation, args, token, storage)
+                    return handle_nep51(ctx, operation, args)
 
             if operation == 'deploy':
-                return deploy(token, storage)
+                return deploy()
 
-            if operation == 'circulation':
-                return token.get_circulation(storage)
-
-            sale = Crowdsale()
+            elif operation == 'circulation':
+                return get_circulation(ctx)
 
             # direct call to contract with neo/gas attached
             # if qualified, contract will receive accets and assign tokens
-            if operation == 'mintTokens':
-                return sale.exchange(token, storage)
+            elif operation == 'mintTokens':
+                return exchange(ctx)
 
             # this is meant to be called by the contract owner not individual users
             # kyc registration will occur off chain, and owner will submit validation record to blockchain
-            if operation == 'crowdsale_register':
-                return sale.kyc_register(token, storage, args)
+            elif operation == 'crowdsale_register':
+                return kyc_register(ctx, args)
 
-            if operation == 'crowdsale_status':
-                return sale.kyc_status(storage, args)
+            elif operation == 'crowdsale_status':
+                return kyc_status(ctx, args)
 
-            if operation == 'crowdsale_available':
-                return token.crowdsale_available_amount(storage)
+            elif operation == 'crowdsale_available':
+                return crowdsale_available_amount(ctx)
 
-            if len(args) <= 0 or args[0] == None:
+            elif len(args) <= 0 or args[0] == None:
                 print('invalid operation')
                 return False
 
@@ -90,34 +84,31 @@ def Main(operation, args):
             args.remove(0)
 
             if operation == 'NameServiceInvoke':
-                nameService = NameService()
-                return nameService.invoke(subOperation, args, nep, token, storage)
+                return handle_name_service(ctx, subOperation, args)
 
         return False
 
 # called once after contract is imported to network
 # This will kick off the initial tokens and put them into
 # circulation under the contract owner
-def deploy(token: Token, storage: StorageAPI):
+def deploy(ctx):
     """
 
     :param token: Token The token to deploy
     :return:
         bool: Whether the operation was successful
     """
-    if not CheckWitness(token.owner):
+    if not CheckWitness(TOKEN_OWNER):
         print("Must be owner to deploy")
         return False
 
     print("deploy; Storage")
-    if not storage.get('initialized'):
+    if not Get(ctx, 'initialized'):
         print("deploy; initialized")
 
         # do deploy logic
-        storage.put('initialized', 1)
-        storage.put(token.owner, token.initial_amount)
-        token.add_to_circulation(token.initial_amount, storage)
-
-        return True
+        Put(ctx, 'initialized', 1)
+        Put(TOKEN_OWNER, TOKEN_INITIAL_AMOUNT)
+        return add_to_circulation(ctx, TOKEN_INITIAL_AMOUNT)
 
     return False
