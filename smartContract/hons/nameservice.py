@@ -21,7 +21,7 @@ def invoke(ctx, operation, args):
             return arg_error
 
         name = args[0]
-        return query(storage, name)
+        return query(ctx, name)
 
     # retreive a list of names associated with this address
     # anyone can call
@@ -31,7 +31,7 @@ def invoke(ctx, operation, args):
             return arg_error
 
         address = args[0]
-        return queryAddress(storage, address)
+        return queryAddress(ctx, address)
 
     # remove a link between a given name and it's address
     # can only be called by name owner
@@ -40,7 +40,7 @@ def invoke(ctx, operation, args):
             return arg_error
 
         name = args[0]
-        return unregister(storage, name)
+        return unregister(ctx, name)
 
     # create a name to address association for a small fee
     # can only be called by owner of address being registered
@@ -50,7 +50,7 @@ def invoke(ctx, operation, args):
 
         name = args[0]
         ownerAddress = args[1]
-        return register(storage, token, nep5, name, ownerAddress)
+        return register(ctx, name, ownerAddress)
 
     # transfer of a name from owner to a new address
     # needs to be called twice, once by owner, and once by requester
@@ -64,7 +64,7 @@ def invoke(ctx, operation, args):
         name = args[0]
         ownerAddress = args[1]
         newOwnerAddress = args[2]
-        return transfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+        return transfer(ctx, name, ownerAddress, newOwnerAddress)
 
     if operation == 'preApproveTransfer':
         if len(args) != 3:
@@ -73,7 +73,7 @@ def invoke(ctx, operation, args):
         name = args[0]
         ownerAddress = args[1]
         newOwnerAddress = args[2]
-        return preApproveTransfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+        return preApproveTransfer(ctx, name, ownerAddress, newOwnerAddress)
 
     if operation == 'requestTransfer':
         if len(args) != 3:
@@ -82,21 +82,21 @@ def invoke(ctx, operation, args):
         name = args[0]
         ownerAddress = args[1]
         newOwnerAddress = args[2]
-        return requestTransfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+        return requestTransfer(ctx, name, ownerAddress, newOwnerAddress)
 
 
-def query(self, storage: StorageAPI, name):
-    return self.getName(storage, name)
+def query(ctx, name):
+    return getName(ctx, name)
 
 
-def queryAddress(self, storage: StorageAPI, address):
-    serializedList = self.getName(storage, address)
+def queryAddress(ctx, address):
+    serializedList = getName(ctx, address)
     addressNameList = deserialize_bytearray(serializedList)
     return addressNameList
 
 
-def unregister(self, storage: StorageAPI, name):
-    ownerAddress = self.getName(storage, name)
+def unregister(ctx, name):
+    ownerAddress = getName(ctx, name)
     isOwnerAddress = CheckWitness(ownerAddress)
 
     if not ownerAddress:
@@ -107,13 +107,12 @@ def unregister(self, storage: StorageAPI, name):
         print('unregister; caller is not owner of record')
         return False
 
-    print('self')
-    return self.do_unregister(storage, name, ownerAddress)
+    return do_unregister(ctx, name, ownerAddress)
 
 
-def register(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress):
+def register(ctx, name, ownerAddress):
     isOwnerAddress = CheckWitness(ownerAddress)
-    currentOwnerAddress = self.getName(storage, name)
+    currentOwnerAddress = getName(ctx, name)
 
     if not isOwnerAddress:
         print('register; contract caller is not same as ownerAddress')
@@ -127,17 +126,17 @@ def register(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, o
         return False
 
     print('register; all qualifications are met, about to pay fee')
-    transferArgs = [ownerAddress, token.owner, self.register_fee]
-    feePaid = nep5.handle_nep51('transfer', transferArgs, token, storage)
+    transferArgs = [ownerAddress, TOKEN_OWNER, NS_REGISTER_FEE]
+    feePaid = handle_nep51(ctx, 'transfer', transferArgs)
 
     if not feePaid:
         print('Insufficient funds to pay registration fee')
         return False
 
     print('register; fees paid, record registration')
-    return self.do_register(storage, name, ownerAddress)
+    return do_register(ctx, name, ownerAddress)
 
-def preApproveTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
+def preApproveTransfer(ctx, name, ownerAddress, newOwnerAddress):
     print('preApproveTransfer')
 
     if ownerAddress == newOwnerAddress:
@@ -148,7 +147,7 @@ def preApproveTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handle
         print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
         return False
 
-    currentOwnerAddress = self.getName(storage, name)
+    currentOwnerAddress = getName(ctx, name)
     if not currentOwnerAddress:
         print('transfer; name record is empty, please register instead')
         return False
@@ -158,15 +157,15 @@ def preApproveTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handle
         return False
 
     approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
-    approvalRecordRaw = self.getName(storage, approvalRecordKey)
+    approvalRecordRaw = getName(ctx, approvalRecordKey)
 
     if not approvalRecordRaw:
         print('transfer; no approval record, create one with approval from owner')
-        feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+        feesCollected = do_fee_collection(storage, token, nep5, ownerAddress, NS_TRANSFER_FEE)
         if feesCollected:
             valueRaw = [True, False]
             value = serialize_array(valueRaw)
-            return self.putName(storage, approvalRecordKey, value)
+            return putName(ctx, approvalRecordKey, value)
         return False
 
     print('approvalRecordRaw')
@@ -184,14 +183,14 @@ def preApproveTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handle
 
     elif not ownerApproves and newOwnerApproves:
         print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
-        feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+        feesCollected = do_fee_collection(storage, token, nep5, ownerAddress, NS_TRANSFER_FEE)
         if feesCollected:
-            return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+            return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
         return False
 
     return False
 
-def requestTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
+def requestTransfer(ctx, name, ownerAddress, newOwnerAddress):
     print('transfer')
     isNewOwnerAddress = CheckWitness(newOwnerAddress)
 
@@ -199,22 +198,22 @@ def requestTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, 
         print('transfer; contract caller is not the same as new owner')
         return False
 
-    currentOwnerAddress = self.getName(storage, name)
+    currentOwnerAddress = getName(ctx, name)
 
     if not currentOwnerAddress:
         print('transfer; name record is empty, please register instead')
         return False
 
     approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
-    approvalRecordRaw = self.getName(storage, approvalRecordKey)
+    approvalRecordRaw = getName(ctx, approvalRecordKey)
 
     if not approvalRecordRaw:
         print('transfer; no approval record, create one with approval from new owner')
-        feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
+        feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
         if feesCollected:
             valueRaw = [False, True]
             value = serialize_array(valueRaw)
-            return self.putName(storage, approvalRecordKey, value)
+            return putName(ctx, approvalRecordKey, value)
         return False
 
     print('approvalRecordRaw')
@@ -232,26 +231,26 @@ def requestTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, 
 
     if ownerApproves and not newOwnerApproves:
         print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
-        feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
+        feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
         if feesCollected:
             print('feesCollected => do_transfer')
             print(approvalRecordKey)
-            return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+            return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
         return False
 
     return False
 
 
-def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
+def transfer(ctx, name, ownerAddress, newOwnerAddress):
     Notify('DEPRECATED: please use preApproveTransfer when calling from name owner and requestTransfer when calling from requester. This consolidated transfer operation is too heavy')
     print('transfer')
     isOwnerAddress = CheckWitness(ownerAddress)
     isNewOwnerAddress = CheckWitness(newOwnerAddress)
-    currentOwnerAddress = self.getName(storage, name)
+    currentOwnerAddress = getName(ctx, name)
     approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
     print('approvalRecordKey')
     print(approvalRecordKey)
-    approvalRecordRaw = self.getName(storage, approvalRecordKey)
+    approvalRecordRaw = getName(storage, approvalRecordKey)
 
     if approvalRecordRaw:
         print('approvalRecordRaw')
@@ -280,11 +279,11 @@ def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, o
 
         elif not approvalRecord:
             print('transfer; no approval record, create one with approval from owner')
-            feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+            feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
             if feesCollected:
                 valueRaw = [True, False]
                 value = serialize_array(valueRaw)
-                return self.putName(storage, approvalRecordKey, value)
+                return putName(ctx, approvalRecordKey, value)
             return False
 
         elif ownerApproves and not newOwnerApproves:
@@ -293,9 +292,9 @@ def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, o
 
         elif not ownerApproves and newOwnerApproves:
             print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
-            feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+            feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
             if feesCollected:
-                return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+                return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
             return False
 
     elif isNewOwnerAddress:
@@ -303,11 +302,11 @@ def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, o
 
         if not approvalRecord:
             print('transfer; no approval record, create one with approval from new owner')
-            feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
+            feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
             if feesCollected:
                 valueRaw = [False, True]
                 value = serialize_array(valueRaw)
-                return self.putName(storage, approvalRecordKey, value)
+                return putName(ctx, approvalRecordKey, value)
             return False
 
         if not ownerApproves and newOwnerApproves:
@@ -316,19 +315,19 @@ def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, o
 
         if ownerApproves and not newOwnerApproves:
             print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
-            feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
+            feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
             if feesCollected:
                 print('feesCollected => do_transfer')
                 print(approvalRecordKey)
-                return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+                return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
             return False
 
     return False
 
 
-def do_fee_collection(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, address, fee):
-    transferArgs = [address, token.owner, fee]
-    feePaid = nep5.handle_nep51('transfer', transferArgs, token, storage)
+def do_fee_collection(ctx, address, fee):
+    transferArgs = [address, TOKEN_OWNER, fee]
+    feePaid = nep5.handle_nep51(ctx, 'transfer', transferArgs)
 
     if not feePaid:
         print('Insufficient funds to pay registration fee')
@@ -338,12 +337,12 @@ def do_fee_collection(self, storage: StorageAPI, token: Token, nep5: NEP5Handler
     return True
 
 
-def do_transfer(self, storage: StorageAPI, name, ownerAddress, newOwnerAddress, approvalRecordKey):
+def do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey):
 
-    didDeleteApprovalKey = self.deleteName(storage, approvalRecordKey)
+    didDeleteApprovalKey = deleteName(ctx, approvalRecordKey)
 
     print('delete approval record key complated, not removing record from owner list')
-    prevOwnerAddressNameList = self.getName(storage, ownerAddress)
+    prevOwnerAddressNameList = getName(ctx, ownerAddress)
     if not prevOwnerAddressNameList:
         print('not possible')
         return False
@@ -352,16 +351,16 @@ def do_transfer(self, storage: StorageAPI, name, ownerAddress, newOwnerAddress, 
         prevOwnerAddressNameList = prevOwnerAddressNameList.remove(name)
 
     if len(prevOwnerAddressNameList) == 0:
-        didUpdatePrevOwnerList = self.deleteName(storage, ownerAddress)
+        didUpdatePrevOwnerList = deleteName(ctx, ownerAddress)
         # fails without this print statement?!?!?!
         print('')
     else:
         serializedList = serialize_array(prevOwnerAddressNameList)
-        didUpdatePrevOwnerList = self.putName(storage, ownerAddress, serializedList)
+        didUpdatePrevOwnerList = putName(ctx, ownerAddress, serializedList)
 
 
     print('removed record from prev owner list, about to add to new owner list')
-    newOwnerAddressNameList = self.getName(storage, newOwnerAddress)
+    newOwnerAddressNameList = getName(ctx, newOwnerAddress)
     if not newOwnerAddressNameList:
         print('if not addressNameList')
         newOwnerAddressNameList = []
@@ -370,22 +369,22 @@ def do_transfer(self, storage: StorageAPI, name, ownerAddress, newOwnerAddress, 
 
     newOwnerAddressNameList = newOwnerAddressNameList.append(name)
     serializedList = serialize_array(newOwnerAddressNameList)
-    didUpdateNewOwnerList = self.putName(storage, newOwnerAddress, serializedList)
+    didUpdateNewOwnerList = putName(ctx, newOwnerAddress, serializedList)
 
 
     print('name added to new owner list')
-    didOverwriteNameRecord = self.putName(storage, name, newOwnerAddress)
+    didOverwriteNameRecord = putName(ctx, name, newOwnerAddress)
 
     return didDeleteApprovalKey and didUpdatePrevOwnerList and didUpdateNewOwnerList and didOverwriteNameRecord
 
 
-def do_register(self, storage: StorageAPI, name, newOwnerAddress):
+def do_register(ctx, name, newOwnerAddress):
     # get current list of names for ownerAddress
     # append name to list
     # put list back
     # put name -> address record
     print('do_register')
-    addressNameList = self.getName(storage, newOwnerAddress)
+    addressNameList = getName(ctx, newOwnerAddress)
     if not addressNameList:
         print('if not addressNameList')
         addressNameList = []
@@ -394,18 +393,18 @@ def do_register(self, storage: StorageAPI, name, newOwnerAddress):
 
     addressNameList = addressNameList.append(name)
     serializedList = serialize_array(addressNameList)
-    putListSuccess = self.putName(storage, newOwnerAddress, serializedList)
-    putNameSuccess = self.putName(storage, name, newOwnerAddress)
+    putListSuccess = putName(ctx, newOwnerAddress, serializedList)
+    putNameSuccess = putName(ctx, name, newOwnerAddress)
     return putListSuccess and putNameSuccess
 
 
-def do_unregister(self, storage: StorageAPI, name, ownerAddress):
+def do_unregister(ctx, name, ownerAddress):
     # get current list of names for ownerAddress
     # delete name from list
     # put list back
     # delete name -> address record
     print('do_unregister')
-    addressNameList = self.getName(storage, ownerAddress)
+    addressNameList = getName(ctx, ownerAddress)
     if not addressNameList:
         print('not possible')
         return False
@@ -414,51 +413,51 @@ def do_unregister(self, storage: StorageAPI, name, ownerAddress):
         addressNameList = addressNameList.remove(name)
 
     if len(addressNameList) == 0:
-        updateListSuccess = self.deleteName(storage, ownerAddress)
+        updateListSuccess = deleteName(ctx, ownerAddress)
         # fails without this print statement?!?!?!
         print('')
     else:
         serializedList = serialize_array(addressNameList)
-        updateListSuccess = self.putName(storage, ownerAddress, serializedList)
+        updateListSuccess = putName(ctx, ownerAddress, serializedList)
 
-    deleteNameSuccess = self.deleteName(storage, name)
+    deleteNameSuccess = deleteName(ctx, name)
     return updateListSuccess and deleteNameSuccess
 
 
-def putName(self, storage: StorageAPI, key, value):
+def putName(ctx, key, value):
     print('putName')
-    prefixedKey = self.prefixStorageKey(key)
+    prefixedKey = prefixStorageKey(key)
     print(prefixedKey)
     print(key)
-    sucess = storage.put(prefixedKey, value)
+    sucess = Put(ctx, prefixedKey, value)
     print('sucess')
     print(sucess)
     return True
 
 
-def getName(self, storage: StorageAPI, key):
+def getName(ctx, key):
     print('getName')
-    prefixedKey = self.prefixStorageKey(key)
+    prefixedKey = prefixStorageKey(key)
     print('prefixedKey')
     print(prefixedKey)
-    obj = storage.get(prefixedKey)
+    obj = Get(ctx, prefixedKey)
     Notify(obj)
     return obj
 
 
-def deleteName(self, storage: StorageAPI, key):
+def deleteName(ctx, key):
     print('deleteName')
-    prefixedKey = self.prefixStorageKey(key)
+    prefixedKey = prefixStorageKey(key)
     print('prefixedKey')
-    storage.delete(prefixedKey)
+    Delete(ctx, prefixedKey)
     print('deleteName; done delete')
     return True
 
 
-def prefixStorageKey(self, key):
+def prefixStorageKey(key):
     print('prefixStorageKey')
     print(key)
-    cat = concat(self.storagePrefix, key)
-    print(self.storagePrefix)
+    cat = concat(NS_STORAGE_PREFIX, key)
+    print(NS_STORAGE_PREFIX)
     print(cat)
     return cat
