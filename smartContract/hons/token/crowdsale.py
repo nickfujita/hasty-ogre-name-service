@@ -2,10 +2,10 @@ from boa.interop.Neo.Blockchain import GetHeight
 from boa.interop.Neo.Action import RegisterAction
 from boa.interop.Neo.Runtime import Notify,CheckWitness
 from boa.interop.Neo.Storage import *
-from boa.code.builtins import concat
+from boa.builtins import concat
 from hons.token.honstoken import *
 
-from hons.utils.transaction import Attachments,get_asset_attachments
+from hons.utils.transaction import get_asset_attachments
 
 OnTransfer = RegisterAction('transfer', 'from', 'to', 'amount')
 OnRefund = RegisterAction('refund', 'to', 'amount')
@@ -74,9 +74,9 @@ def exchange(ctx):
     gas_attached = attachments[3]
 
     # this looks up whether the exchange can proceed
-    can_exchange = can_exchange(ctx, attachments, False)
+    exchange_ok = can_exchange(ctx, attachments, False)
 
-    if not can_exchange:
+    if not exchange_ok:
         print("Cannot exchange value")
         # This should only happen in the case that there are a lot of TX on the final
         # block before the total amount is reached.  An amount of TX will get through
@@ -113,7 +113,7 @@ def exchange(ctx):
     return True
 
 
-def can_exchange(ctx, attachments, verify_only: bool) -> bool:
+def can_exchange(ctx, attachments, verify_only):
     """
     Determines if the contract invocation meets all requirements for the ICO exchange
     of neo or gas into NEP5 Tokens.
@@ -169,9 +169,7 @@ def can_exchange(ctx, attachments, verify_only: bool) -> bool:
     # this would work for accepting gas
     amount_requested += gas_attached * TOKENS_PER_GAS / 100000000
 
-    can_exchange = calculate_can_exchange(ctx, amount_requested, sender_addr, verify_only)
-
-    return can_exchange
+    return calculate_can_exchange(ctx, amount_requested, sender_addr, verify_only)
 
 
 def get_kyc_status(ctx, address):
@@ -188,7 +186,7 @@ def get_kyc_status(ctx, address):
     return Get(ctx, kyc_storage_key)
 
 
-def calculate_can_exchange(ctx, amount: int, address, verify_only: bool):
+def calculate_can_exchange(ctx, amount, address, verify_only):
     """
     Perform custom token exchange calculations here.
 

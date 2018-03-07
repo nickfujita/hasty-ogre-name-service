@@ -1,4 +1,4 @@
-from boa.code.builtins import concat, list, range
+from boa.builtins import concat, list, range
 
 # commonly called for data pulled from storage
 # very helpful for storing arrays

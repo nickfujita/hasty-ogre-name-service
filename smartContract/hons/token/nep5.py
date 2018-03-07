@@ -1,7 +1,7 @@
 from boa.interop.Neo.Runtime import CheckWitness, Notify
 from boa.interop.Neo.Action import RegisterAction
 from boa.interop.Neo.Storage import *
-from boa.code.builtins import concat
+from boa.builtins import concat
 
 from hons.token.honstoken import *
 
@@ -10,7 +10,8 @@ OnTransfer = RegisterAction('transfer', 'addr_from', 'addr_to', 'amount')
 OnApprove = RegisterAction('approve', 'addr_from', 'addr_to', 'amount')
 
 
-NEP5_METHODS = ['name', 'symbol', 'decimals', 'totalSupply', 'balanceOf','transfer', 'transferFrom', 'approve', 'allowance']
+def NEP5_METHODS():
+    return ['name', 'symbol', 'decimals', 'totalSupply', 'balanceOf','transfer', 'transferFrom', 'approve', 'allowance']
 
 def handle_nep51(ctx, operation, args):
 
