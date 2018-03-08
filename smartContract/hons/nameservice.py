@@ -8,11 +8,9 @@ NS_REGISTER_FEE = 10 * 100_000_000  # 10 to owners * 10^8
 NS_TRANSFER_FEE = 5 * 100_000_000   # 5 to owners * 10^8
 NS_STORAGE_PREFIX = 'NAMESERVICE'
 
-def invoke(ctx, operation, args):
+def handle_name_service(ctx, operation, args):
 
     arg_error = 'Incorrect Arg Length'
-
-    Notify(args)
 
     # retreive the address associated with a given name
     # anyone can call
@@ -45,6 +43,8 @@ def invoke(ctx, operation, args):
     # create a name to address association for a small fee
     # can only be called by owner of address being registered
     if operation == 'register':
+        print('register;')
+        print(len(args))
         if len(args) != 2:
             return arg_error
 
@@ -57,14 +57,14 @@ def invoke(ctx, operation, args):
     # first one to call creates transfer agreement
     # secong one to call finalizes transfer agreement, and transfer is executed
     # if both parties to not fulfil agreement, transfer will not take place
-    # if operation == 'transfer':
-    #     if len(args) != 3:
-    #         return arg_error
-    #
-    #     name = args[0]
-    #     ownerAddress = args[1]
-    #     newOwnerAddress = args[2]
-    #     return transfer(ctx, name, ownerAddress, newOwnerAddress)
+    if operation == 'transfer':
+        if len(args) != 3:
+            return arg_error
+
+        name = args[0]
+        ownerAddress = args[1]
+        newOwnerAddress = args[2]
+        return transfer(ctx, name, ownerAddress, newOwnerAddress)
 
     if operation == 'preApproveTransfer':
         if len(args) != 3:
@@ -245,90 +245,90 @@ def requestTransfer(ctx, name, ownerAddress, newOwnerAddress):
     return False
 
 
-# def transfer(ctx, name, ownerAddress, newOwnerAddress):
-#     Notify('DEPRECATED: please use preApproveTransfer when calling from name owner and requestTransfer when calling from requester. This consolidated transfer operation is too heavy')
-#     print('transfer')
-#     isOwnerAddress = CheckWitness(ownerAddress)
-#     isNewOwnerAddress = CheckWitness(newOwnerAddress)
-#     currentOwnerAddress = getName(ctx, name)
-#     approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
-#     print('approvalRecordKey')
-#     print(approvalRecordKey)
-#     approvalRecordRaw = getName(ctx, approvalRecordKey)
-#
-#     if approvalRecordRaw:
-#         print('approvalRecordRaw')
-#         # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
-#         approvalRecord = deserialize_bytearray(approvalRecordRaw)
-#         print('approvalRecord')
-#         ownerApproves = approvalRecord[0]
-#         print('ownerApproves')
-#         newOwnerApproves = approvalRecord[1]
-#         print('newOwnerApproves')
-#
-#     if not currentOwnerAddress:
-#         print('transfer; name record is empty, please register instead')
-#         return False
-#
-#     elif not isOwnerAddress and not isNewOwnerAddress:
-#         print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
-#         return False
-#
-#     elif isOwnerAddress:
-#         print('transfer; contract caller is owner')
-#
-#         if currentOwnerAddress != ownerAddress:
-#             print('transfer; contract caller is not owner of name record')
-#             return False
-#
-#         elif not approvalRecord:
-#             print('transfer; no approval record, create one with approval from owner')
-#             feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
-#             if feesCollected:
-#                 valueRaw = [True, False]
-#                 value = serialize_array(valueRaw)
-#                 putName(ctx, approvalRecordKey, value)
-#                 return True
-#             return False
-#
-#         elif ownerApproves and not newOwnerApproves:
-#             print('transfer; owner pre approval already created, but waiting for new owner')
-#             return False
-#
-#         elif not ownerApproves and newOwnerApproves:
-#             print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
-#             feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
-#             if feesCollected:
-#                 return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
-#             return False
-#
-#     elif isNewOwnerAddress:
-#         print('transfer; contract caller is new owner')
-#
-#         if not approvalRecord:
-#             print('transfer; no approval record, create one with approval from new owner')
-#             feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
-#             if feesCollected:
-#                 valueRaw = [False, True]
-#                 value = serialize_array(valueRaw)
-#                 putName(ctx, approvalRecordKey, value)
-#                 return True
-#             return False
-#
-#         if not ownerApproves and newOwnerApproves:
-#             print('transfer; new owner pre approval already created, but waiting for current owner')
-#             return False
-#
-#         if ownerApproves and not newOwnerApproves:
-#             print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
-#             feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
-#             if feesCollected:
-#                 print('feesCollected => do_transfer')
-#                 print(approvalRecordKey)
-#                 return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
-#             return False
-#
-#     return False
+def transfer(ctx, name, ownerAddress, newOwnerAddress):
+    Notify('DEPRECATED: please use preApproveTransfer when calling from name owner and requestTransfer when calling from requester. This consolidated transfer operation is too heavy')
+    print('transfer')
+    isOwnerAddress = CheckWitness(ownerAddress)
+    isNewOwnerAddress = CheckWitness(newOwnerAddress)
+    currentOwnerAddress = getName(ctx, name)
+    approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
+    print('approvalRecordKey')
+    print(approvalRecordKey)
+    approvalRecordRaw = getName(ctx, approvalRecordKey)
+
+    if approvalRecordRaw:
+        print('approvalRecordRaw')
+        # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
+        approvalRecord = deserialize_bytearray(approvalRecordRaw)
+        print('approvalRecord')
+        ownerApproves = approvalRecord[0]
+        print('ownerApproves')
+        newOwnerApproves = approvalRecord[1]
+        print('newOwnerApproves')
+
+    if not currentOwnerAddress:
+        print('transfer; name record is empty, please register instead')
+        return False
+
+    elif not isOwnerAddress and not isNewOwnerAddress:
+        print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
+        return False
+
+    elif isOwnerAddress:
+        print('transfer; contract caller is owner')
+
+        if currentOwnerAddress != ownerAddress:
+            print('transfer; contract caller is not owner of name record')
+            return False
+
+        elif not approvalRecord:
+            print('transfer; no approval record, create one with approval from owner')
+            feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
+            if feesCollected:
+                valueRaw = [True, False]
+                value = serialize_array(valueRaw)
+                putName(ctx, approvalRecordKey, value)
+                return True
+            return False
+
+        elif ownerApproves and not newOwnerApproves:
+            print('transfer; owner pre approval already created, but waiting for new owner')
+            return False
+
+        elif not ownerApproves and newOwnerApproves:
+            print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
+            feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
+            if feesCollected:
+                return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+            return False
+
+    elif isNewOwnerAddress:
+        print('transfer; contract caller is new owner')
+
+        if not approvalRecord:
+            print('transfer; no approval record, create one with approval from new owner')
+            feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
+            if feesCollected:
+                valueRaw = [False, True]
+                value = serialize_array(valueRaw)
+                putName(ctx, approvalRecordKey, value)
+                return True
+            return False
+
+        if not ownerApproves and newOwnerApproves:
+            print('transfer; new owner pre approval already created, but waiting for current owner')
+            return False
+
+        if ownerApproves and not newOwnerApproves:
+            print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
+            feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
+            if feesCollected:
+                print('feesCollected => do_transfer')
+                print(approvalRecordKey)
+                return do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+            return False
+
+    return False
 
 
 def do_fee_collection(ctx, address, fee):

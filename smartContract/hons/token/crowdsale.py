@@ -1,4 +1,4 @@
-from boa.interop.Neo.Blockchain import GetHeight
+from boa.interop.Neo.Blockchain import GetHeight, Notify
 from boa.interop.Neo.Action import RegisterAction
 from boa.interop.Neo.Runtime import Notify,CheckWitness
 from boa.interop.Neo.Storage import *
@@ -66,12 +66,17 @@ def exchange(ctx):
     :return:
         bool: Whether the exchange was successful
     """
-
+    print('exchange;')
     attachments = get_asset_attachments()  # type:  Attachments
+    print('exchange; attachments')
     receiver_addr = attachments[0]
+    print('exchange; receiver_addr')
     sender_addr = attachments[1]
+    print('exchange; sender_addr')
     neo_attached = attachments[2]
+    print('exchange; neo_attached')
     gas_attached = attachments[3]
+    print('exchange; gas_attached')
 
     # this looks up whether the exchange can proceed
     exchange_ok = can_exchange(ctx, attachments, False)
@@ -198,11 +203,12 @@ def calculate_can_exchange(ctx, amount, address, verify_only):
     """
     height = GetHeight()
 
+    print('calculate_can_exchange;')
+
     current_in_circulation = Get(ctx, TOKEN_CIRC_KEY)
-
     new_amount = current_in_circulation + amount
-
-    if new_amount > TOTAL_SUPPLY:
+    print('calculate_c  an_exchange;')
+    if new_amount > TOKEN_TOTAL_SUPPLY:
         print("amount greater than total supply")
         return False
 

@@ -45,70 +45,68 @@ def Main(operation, args):
             # handle all nep5 transactions first,
             # since these are commonly accepted operations we
             # do not want to prefix this like we are below for the nameServices
+            for op in NEP5_METHODS:
+                if operation == op:
+                    return handle_nep51(ctx, operation, args)
 
-            for op in NEP5_METHODS():
-                # if operation == op:
-                return handle_nep51(ctx, operation, args)
+            if operation == 'deploy':
+                return deploy(ctx)
 
-            # if operation == 'deploy':
-            #     return deploy()
+            if operation == 'circulation':
+                return get_circulation(ctx)
 
-            # if operation == 'circulation':
-            #     return get_circulation(ctx)
-            #
-            # # direct call to contract with neo/gas attached
-            # # if qualified, contract will receive accets and assign tokens
-            # elif operation == 'mintTokens':
-            #     return exchange(ctx)
+            # direct call to contract with neo/gas attached
+            # if qualified, contract will receive accets and assign tokens
+            elif operation == 'mintTokens':
+                return exchange(ctx)
 
             # this is meant to be called by the contract owner not individual users
             # kyc registration will occur off chain, and owner will submit validation record to blockchain
-            # elif operation == 'crowdsale_register':
-            #     return kyc_register(ctx, args)
-            #
-            # elif operation == 'crowdsale_status':
-            #     return kyc_status(ctx, args)
-            #
-            # elif operation == 'crowdsale_available':
-            #     return crowdsale_available_amount(ctx)
-            #
-            # elif len(args) <= 0 or args[0] == None:
-            #     print('invalid operation')
-            #     return False
+            elif operation == 'crowdsale_register':
+                return kyc_register(ctx, args)
+
+            elif operation == 'crowdsale_status':
+                return kyc_status(ctx, args)
+
+            elif operation == 'crowdsale_available':
+                return crowdsale_available_amount(ctx)
+
+            elif len(args) <= 0 or args[0] == None:
+                print('invalid operation')
+                return False
 
             # this is an approach for handling sub contract modules
             # contract calls will be routed to their sub modules appropriately
             # with the first argument being the operation intended
             # for the sub modules method routing
-            # subOperation = args[0]
-            # args.remove(0)
-            #
-            # if operation == 'NameServiceInvoke':
-            #     return handle_name_service(ctx, subOperation, args)
+            subOperation = args[0]
+            args.remove(0)
+
+            if operation == 'NameServiceInvoke':
+                return handle_name_service(ctx, subOperation, args)
 
         return False
 
 # called once after contract is imported to network
 # This will kick off the initial tokens and put them into
 # circulation under the contract owner
-# def deploy(ctx):
-#     """
-#
-#     :param token: Token The token to deploy
-#     :return:
-#         bool: Whether the operation was successful
-#     """
-#     if not CheckWitness(TOKEN_OWNER):
-#         print("Must be owner to deploy")
-#         return False
-#
-#     print("deploy; Storage")
-#     if not Get(ctx, 'initialized'):
-#         print("deploy; initialized")
-#
-#         # do deploy logic
-#         Put(ctx, 'initialized', 1)
-#         Put(TOKEN_OWNER, TOKEN_INITIAL_AMOUNT)
-#         return add_to_circulation(ctx, TOKEN_INITIAL_AMOUNT)
-#
-#     return False
+def deploy(ctx):
+
+    print("deploy")
+
+    if not CheckWitness(TOKEN_OWNER):
+        print("Must be owner to deploy")
+        return False
+
+    print("deploy; Storage")
+    hasInitialized = Get(ctx, 'initialized')
+    print("deploy; hasInitialized?")
+    if not hasInitialized:
+        print("deploy; initialized")
+
+        # do deploy logic
+        Put(ctx, 'initialized', 1)
+        Put(ctx, TOKEN_OWNER, TOKEN_INITIAL_AMOUNT)
+        return add_to_circulation(ctx, TOKEN_INITIAL_AMOUNT)
+
+    return False

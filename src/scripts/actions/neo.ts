@@ -14,7 +14,7 @@ let balanceRefresher;
 
 export function initNeon() {
   return (dispatch, getState) => {
-    // setNet('http://127.0.0.1:5000');
+    setNet('http://127.0.0.1:5000');
     dispatch(udpateAddressInfo());
     balanceRefresher = setInterval(() => dispatch(udpateAddressInfo()), 5000);
     dispatch(fetchTokenDetails(nep5Tokens.hons));
