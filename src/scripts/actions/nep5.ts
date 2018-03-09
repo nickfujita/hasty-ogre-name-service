@@ -101,8 +101,11 @@ export function testHonsTransfer(fromAddress, amount) {
 
 export function sendHons(fromAddress, toAddress, amount) {
   return (dispatch, getState) => {
-    const honsAddress = nep5Tokens.hons;
-    dispatch(transfer(honsAddress, fromAddress, toAddress , amount));
+    const validHons = amount && amount > 0;
+    if (validHons) {
+      const honsAddress = nep5Tokens.hons;
+      dispatch(transfer(honsAddress, fromAddress, toAddress , amount));
+    }
   };
 }
 
