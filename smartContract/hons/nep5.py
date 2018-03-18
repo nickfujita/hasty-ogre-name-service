@@ -3,18 +3,14 @@ from boa.interop.Neo.Action import RegisterAction
 from boa.interop.Neo.Storage import *
 from boa.builtins import concat
 
-from hons.token.honstoken import *
+from hons.token import *
 
 
 OnTransfer = RegisterAction('transfer', 'addr_from', 'addr_to', 'amount')
 OnApprove = RegisterAction('approve', 'addr_from', 'addr_to', 'amount')
 
 
-NEP5_METHODS = ['name', 'symbol', 'decimals', 'totalSupply', 'balanceOf','transfer', 'transferFrom', 'approve', 'allowance']
-
 def handle_nep51(ctx, operation, args):
-
-    # these first 3 don't require get ctx
 
     if operation == 'name':
         return TOKEN_NAME
@@ -25,50 +21,31 @@ def handle_nep51(ctx, operation, args):
     elif operation == 'symbol':
         return TOKEN_SYMBOL
 
-    arg_error = 'Incorrect Arg Length'
-
-    if operation == 'totalSupply':
+    elif operation == 'totalSupply':
         return Get(ctx, TOKEN_CIRC_KEY)
 
     elif operation == 'balanceOf':
         if len(args) == 1:
-            account = args[0]
-            return Get(ctx, account)
-        return arg_error
+            return Get(ctx, args[0])
 
     elif operation == 'transfer':
         if len(args) == 3:
-            t_from = args[0]
-            t_to = args[1]
-            t_amount = args[2]
-            return do_transfer(ctx, t_from, t_to, t_amount)
-        return arg_error
+            return do_transfer(ctx, args[0], args[1], args[2])
 
     elif operation == 'transferFrom':
         if len(args) == 3:
-            t_from = args[0]
-            t_to = args[1]
-            t_amount = args[2]
-            return do_transfer_from(ctx, t_from, t_to, t_amount)
-        return arg_error
+            return do_transfer_from(ctx, args[0], args[1], args[2])
 
     elif operation == 'approve':
         if len(args) == 3:
-            t_owner = args[0]
-            t_spender = args[1]
-            t_amount = args[2]
-            return do_approve(ctx, t_owner, t_spender, t_amount)
-        return arg_error
+            return do_approve(ctx, args[0], args[1], args[2])
 
     elif operation == 'allowance':
         if len(args) == 2:
-            t_owner = args[0]
-            t_spender = args[1]
-            return do_allowance(ctx, t_owner, t_spender)
-
-        return arg_error
+            return do_allowance(ctx, args[0], args[1])
 
     return False
+
 
 def do_transfer(ctx, t_from, t_to, amount):
 
@@ -162,18 +139,14 @@ def do_transfer_from(ctx, t_from, t_to, amount):
 def do_approve(ctx, t_owner, t_spender, amount):
 
     if not CheckWitness(t_owner):
-        print("Incorrect permission")
         return False
 
     if amount < 0:
-        print("Negative amount")
         return False
-
-    from_balance = Get(ctx, t_owner)
 
     # cannot approve an amount that is
     # currently greater than the from balance
-    if from_balance >= amount:
+    if Get(ctx, t_owner) >= amount:
 
         approval_key = concat(t_owner, t_spender)
 
@@ -187,6 +160,7 @@ def do_approve(ctx, t_owner, t_spender, amount):
         return True
 
     return False
+
 
 def do_allowance(ctx, t_owner, t_spender):
 

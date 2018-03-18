@@ -1,109 +1,104 @@
-from boa.interop.Neo.Runtime import GetTrigger, Notify, CheckWitness
+"""
+NEX ICO Template
+===================================
+
+Author: Thomas Saunders
+Email: tom@neonexchange.org
+
+Date: Dec 11 2017
+
+"""
+from hons.txio import get_asset_attachments
+from hons.token import *
+from hons.crowdsale import *
+from hons.nep5 import *
+from hons.nameservice import *
+from boa.interop.Neo.Runtime import GetTrigger, CheckWitness
 from boa.interop.Neo.TriggerType import Application, Verification
 from boa.interop.Neo.Storage import *
-from hons.token.crowdsale import *
-from hons.token.honstoken import *
-from hons.token.nep5 import *
-from hons.utils.transaction import *
-from hons.nameservice import *
 
-# input types 0710 (string, array)
-# return type 05 (bytearray)
+ctx = GetContext()
+NEP5_METHODS = ['name', 'symbol', 'decimals', 'totalSupply', 'balanceOf', 'transfer', 'transferFrom', 'approve', 'allowance']
+NS_METHODS = ['nameService.query', 'nameService.queryAddress', 'nameService.unregister', 'nameService.register', 'nameService.transfer', 'nameService.preApproveTransfer', 'nameService.requestTransfer']
+
+
 def Main(operation, args):
+    """
 
-    # it's important to instanciate these in the start of the contract
-    # I previously instancited each within each of the subfiles,
-    # but started to run into issues executing the contract properly
-    ctx = GetContext()
+    :param operation: str The name of the operation to perform
+    :param args: list A list of arguments along with the operation
+    :return:
+        bytearray: The result of the operation
+    """
+
     trigger = GetTrigger()
 
-    # In the case that a user sends NEO/GAS to this contract address
-    # trigger will be set to Verification, and enter this flow
+    # This is used in the Verification portion of the contract
+    # To determine whether a transfer of system assets ( NEO/Gas) involving
+    # This contract's address can proceed
     if trigger == Verification():
-        # In the case that the contract owner is sending or receiving
-        # from the contract address, we will always approve
-        # This allows the contract owner to manage assets received
-        # by the contract
-        if CheckWitness(TOKEN_OWNER):
+
+        # check if the invoker is the owner of this contract
+        is_owner = CheckWitness(TOKEN_OWNER)
+
+        # If owner, proceed
+        if is_owner:
+
             return True
 
-        # Calls helper to pull transaction information in an object
-        # Contains info like who the sender and recever is,
-        # and how much neo/gas is attached
-        attachments = get_asset_attachments()  # type:Attachments
-
-        # users may also send neo/gas to the contract in the case of a
-        # crowd sale. In this case we can handle their transactions of
-        # whether or not to accept the amount or refund
+        # Otherwise, we need to lookup the assets and determine
+        # If attachments of assets is ok
+        attachments = get_asset_attachments()
         return can_exchange(ctx, attachments, True)
 
-    # this is called when users invoke a contract directly
     elif trigger == Application():
 
-        if operation != None:
+        for op in NEP5_METHODS:
+            if operation == op:
+                return handle_nep51(ctx, operation, args)
 
-            # handle all nep5 transactions first,
-            # since these are commonly accepted operations we
-            # do not want to prefix this like we are below for the nameServices
-            for op in NEP5_METHODS:
-                if operation == op:
-                    return handle_nep51(ctx, operation, args)
+        for op in NS_METHODS:
+            if operation == op:
+                return handle_name_service(ctx, operation, args)
 
-            if operation == 'deploy':
-                return deploy(ctx)
+        if operation == 'deploy':
+            return deploy()
 
-            if operation == 'circulation':
-                return get_circulation(ctx)
+        elif operation == 'circulation':
+            return get_circulation(ctx)
 
-            # direct call to contract with neo/gas attached
-            # if qualified, contract will receive accets and assign tokens
-            elif operation == 'mintTokens':
-                return exchange(ctx)
+        # the following are handled by crowdsale
 
-            # this is meant to be called by the contract owner not individual users
-            # kyc registration will occur off chain, and owner will submit validation record to blockchain
-            elif operation == 'crowdsale_register':
-                return kyc_register(ctx, args)
+        elif operation == 'mintTokens':
+            return perform_exchange(ctx)
 
-            elif operation == 'crowdsale_status':
-                return kyc_status(ctx, args)
+        elif operation == 'crowdsale_register':
+            return kyc_register(ctx, args)
 
-            elif operation == 'crowdsale_available':
-                return crowdsale_available_amount(ctx)
+        elif operation == 'crowdsale_status':
+            return kyc_status(ctx, args)
 
-            elif len(args) <= 0 or args[0] == None:
-                print('invalid operation')
-                return False
+        elif operation == 'crowdsale_available':
+            return crowdsale_available_amount(ctx)
 
-            # this is an approach for handling sub contract modules
-            # contract calls will be routed to their sub modules appropriately
-            # with the first argument being the operation intended
-            # for the sub modules method routing
-            subOperation = args[0]
-            args.remove(0)
+        elif operation == 'get_attachments':
+            return get_asset_attachments()
 
-            if operation == 'NameServiceInvoke':
-                return handle_name_service(ctx, subOperation, args)
+    return False
 
-        return False
 
-# called once after contract is imported to network
-# This will kick off the initial tokens and put them into
-# circulation under the contract owner
-def deploy(ctx):
+def deploy():
+    """
 
-    print("deploy")
-
+    :param token: Token The token to deploy
+    :return:
+        bool: Whether the operation was successful
+    """
     if not CheckWitness(TOKEN_OWNER):
         print("Must be owner to deploy")
         return False
 
-    print("deploy; Storage")
-    hasInitialized = Get(ctx, 'initialized')
-    print("deploy; hasInitialized?")
-    if not hasInitialized:
-        print("deploy; initialized")
-
+    if not Get(ctx, 'initialized'):
         # do deploy logic
         Put(ctx, 'initialized', 1)
         Put(ctx, TOKEN_OWNER, TOKEN_INITIAL_AMOUNT)

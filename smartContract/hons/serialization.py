@@ -4,6 +4,8 @@ from boa.builtins import concat, list, range
 # very helpful for storing arrays
 def deserialize_bytearray(data):
 
+    print('deserialize_bytearray')
+
     # get length of length
     collection_length_length = data[0:1]
 
