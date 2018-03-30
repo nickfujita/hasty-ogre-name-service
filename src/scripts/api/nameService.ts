@@ -1,31 +1,38 @@
-import Neon, { u, wallet, sc, api } from '@cityofzion/neon-js';
+import Neon, { u, wallet, sc, api, rpc } from '@cityofzion/neon-js';
 import { readInvoke, invoke } from '../api/contract';
 import { nep5Tokens } from '../constants/test';
+import { getNet } from './net';
 
 export function queryName(name): Promise<any> {
-  const method = 'nameService' + 'query';
+  const method = 'nameServiceQuery';
   const parsedName = sc.ContractParam.string(name);
   const honsTokenAddress = nep5Tokens.hons;
+
   return readInvoke(honsTokenAddress, method, [parsedName])
   .then(res => {
     if (Boolean(res)) {
       res = u.reverseHex(res);
       res = wallet.getAddressFromScriptHash(res);
     }
-    return res;
+    // return res;
   });
 }
 
 export function queryAddress(address): Promise<any> {
-  const method = 'nameService' + 'queryAddress';
+  const method = 'nameServiceQueryAddress';
   const parsedAddress = sc.ContractParam.byteArray(address, 'address');
   const honsTokenAddress = nep5Tokens.hons;
   return readInvoke(honsTokenAddress, method, [parsedAddress])
-  .then(res => res && res.map && res.map(item => u.hexstring2str(item.value)));
+  .then(res => {
+    if (res) {
+      let items = deserializeBytearray(res);
+      return items.map(item => u.hexstring2str(String(item)));
+    }
+  });
 }
 
 export function register(name, addressObj) {
-  const method = 'nameService' + 'register';
+  const method = 'nameServiceRegister';
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(addressObj.address, 'address');
   const honsTokenAddress = nep5Tokens.hons;
@@ -33,14 +40,14 @@ export function register(name, addressObj) {
 }
 
 export function unregister(name, addressObj) {
-  const method = 'nameService' + 'unregister';
+  const method = 'nameServiceUnregister';
   const parsedName = sc.ContractParam.string(name);
   const honsTokenAddress = nep5Tokens.hons;
   invoke(addressObj, honsTokenAddress, method, [parsedName]);
 }
 
 export function transfer(name, callerAccountObj, fromAddress, toAddress) {
-  const method = 'nameService' + 'transfer';
+  const method = 'nameServiceTransfer';
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
   const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
@@ -49,7 +56,7 @@ export function transfer(name, callerAccountObj, fromAddress, toAddress) {
 }
 
 export function preApproveTransfer(name, callerAccountObj, fromAddress, toAddress) {
-  const method = 'nameService' + 'preApproveTransfer';
+  const method = 'nameServicePreApproveTransfer';
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
   const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
@@ -58,10 +65,48 @@ export function preApproveTransfer(name, callerAccountObj, fromAddress, toAddres
 }
 
 export function requestTransfer(name, callerAccountObj, fromAddress, toAddress) {
-  const method = 'nameService' + 'requestTransfer';
+  const method = 'nameServiceRequestTransfer';
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
   const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
   const honsTokenAddress = nep5Tokens.hons;
   invoke(callerAccountObj, honsTokenAddress, method, [parsedName, scFromAddress, scToAddress]);
+}
+
+// 01020103636174010463617431
+function deserializeBytearray(data) {
+  var mutatedData = data;
+  var collection_length_length = Number(mutatedData.slice(0, 2));
+  mutatedData = mutatedData.slice(2);
+
+
+  // # get length of collection
+  var collection_len = Number(mutatedData.slice(0, collection_length_length + 1));
+  mutatedData = mutatedData.slice(collection_length_length + 1);
+
+  // # create a new collection
+  var new_collection = []
+
+  for (var i = 0; i < collection_len; i++) {
+
+    // # get the data length length
+    var itemlen_len = Number(mutatedData.slice(0, 2));
+    mutatedData = mutatedData.slice(2);
+
+    // # get the length of the data
+    var item_len = Number(mutatedData.slice(0, itemlen_len + 1)) * 2;
+    mutatedData = mutatedData.slice(itemlen_len + 1);
+
+    // # get the data
+    var item = Number(mutatedData.slice(0, item_len));
+    console.log(itemlen_len, item_len, item, mutatedData)
+    mutatedData = mutatedData.slice(item_len);
+    console.log(itemlen_len, item_len, item, mutatedData)
+
+    // # store it in collection
+    new_collection.push(item);
+
+  }
+
+  return new_collection
 }

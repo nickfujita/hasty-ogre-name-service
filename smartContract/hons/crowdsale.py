@@ -118,7 +118,7 @@ def can_exchange(ctx, attachments, verify_only):
     """
 
     # if you are accepting gas, use this
-   if attachments[3] == 0 and attachments[2] == 0:
+    if attachments[3] == 0 and attachments[2] == 0:
        print("no neo or gas attached")
        return False
 

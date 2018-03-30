@@ -14,23 +14,23 @@ def handle_name_service(ctx, operation, args):
 
     # retreive the address associated with a given name
     # anyone can call
-    if operation == 'nameService.query':
+    if operation == 'nameServiceQuery':
         return query(ctx, args[0])
 
     # retreive a list of names associated with this address
     # anyone can call
     # output: array as bytearray
-    elif operation == 'nameService.queryAddress':
+    elif operation == 'nameServiceQueryAddress':
         return queryAddress(ctx, args[0])
 
     # remove a link between a given name and it's address
     # can only be called by name owner
-    elif operation == 'nameService.unregister':
+    elif operation == 'nameServiceUnregister':
         return unregister(ctx, args[0])
 
     # create a name to address association for a small fee
     # can only be called by owner of address being registered
-    elif operation == 'nameService.register':
+    elif operation == 'nameServiceRegister':
         return register(ctx, args[0], args[1])
 
     # # transfer of a name from owner to a new address
@@ -39,11 +39,20 @@ def handle_name_service(ctx, operation, args):
     # # secong one to call finalizes transfer agreement, and transfer is executed
     # # if both parties to not fulfil agreement, transfer will not take place
 
-    elif operation == 'nameService.preApproveTransfer':
+    elif operation == 'nameServicePreApproveTransfer':
         return preApproveTransfer(ctx, args[0], args[1], args[2])
 
-    elif operation == 'nameService.requestTransfer':
+    elif operation == 'nameServiceRequestTransfer':
         return requestTransfer(ctx, args[0], args[1], args[2])
+
+    elif operation == 'nameServiceQueryForSale':
+        return queryForSale(ctx, args[0])
+
+    elif operation == 'nameServicePostForSale':
+        return postForSale(ctx, args[0], args[1])
+
+    elif operation == 'nameServiceAcceptSale':
+        return acceptSale(ctx, args[0], args[1])
 
     return False
 
@@ -154,7 +163,8 @@ def preApproveTransfer(ctx, name, ownerAddress, newOwnerAddress):
             print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
             feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
             if feesCollected:
-                return ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+                deleteName(ctx, approvalRecordKey)
+                return ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
             return False
 
     return False
@@ -216,7 +226,57 @@ def requestTransfer(ctx, name, ownerAddress, newOwnerAddress):
             feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
             if feesCollected :
                 print('feesCollected => do_transfer')
-                return ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+                deleteName(ctx, approvalRecordKey)
+                return ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
+
+    return False
+
+def postForSale(ctx, name, amount):
+    print('postForSale')
+    ownerAddress = getName(ctx, name)
+    isOwnerAddress = CheckWitness(ownerAddress)
+
+    if ownerAddress == b'':
+        print('unregister; record does not exist')
+        return False
+
+    if isOwnerAddress == False:
+        print('unregister; caller is not owner of record')
+        return False
+
+    if amount > 0:
+        putName(ctx, concat('FORSALE', name), amount)
+
+    return True
+
+def queryForSale(ctx, name):
+    return getName(ctx, concat('FORSALE', name))
+
+def acceptSale(ctx, name, account):
+    print('acceptSale')
+    ownerAddress = getName(ctx, name)
+    forSaleRecord = getName(ctx, concat('FORSALE', name))
+    isCallerAddress = CheckWitness(account)
+
+    if ownerAddress == b'':
+        print('acceptSale; name record does not exist')
+        return False
+
+    if forSaleRecord == b'':
+        print('acceptSale; for sales record does not exist')
+        return False
+
+    if isCallerAddress == False:
+        print('acceptSale; caller is not same as transfer to')
+        return False
+
+    accountBalance = Get(ctx, account)
+    requiredBalance = forSaleRecord + NS_REGISTER_FEE
+    if requiredBalance <= accountBalance:
+        feePaid = do_fee_collection(ctx, account, NS_REGISTER_FEE)
+        saleAmountPaid = do_transfer(ctx, account, TOKEN_OWNER, forSaleRecord)
+        deleteName(ctx, concat('FORSALE', name))
+        return ns_do_transfer(ctx, name, ownerAddress, account)
 
     return False
 
@@ -231,9 +291,7 @@ def do_fee_collection(ctx, address, fee):
     return True
 
 
-def ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress, approvalRecordKey):
-
-    deleteName(ctx, approvalRecordKey)
+def ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress):
 
     print('delete approval record key complated, not removing record from owner list')
     prevOwnerAddressNameList = getName(ctx, ownerAddress)
@@ -281,11 +339,11 @@ def ns_do_register(ctx, name, newOwnerAddress):
     addressNameList = getName(ctx, newOwnerAddress)
     if addressNameList == b'':
         print('if not addressNameList')
-        addressNameList = []
+        addressNameList = [name]
     else:
         addressNameList = deserialize_bytearray(addressNameList)
+        addressNameList = addItem(addressNameList, name)
 
-    addressNameList = addressNameList.append(name)
     serializedList = serialize_array(addressNameList)
     putName(ctx, newOwnerAddress, serializedList)
     putName(ctx, name, newOwnerAddress)
