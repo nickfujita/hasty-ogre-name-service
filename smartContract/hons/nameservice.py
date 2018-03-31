@@ -51,6 +51,9 @@ def handle_name_service(ctx, operation, args):
     elif operation == 'nameServicePostForSale':
         return postForSale(ctx, args[0], args[1])
 
+    elif operation == 'nameServiceCancelForSale':
+        return cancelForSale(ctx, args[0])
+
     elif operation == 'nameServiceAcceptSale':
         return acceptSale(ctx, args[0], args[1])
 
@@ -76,6 +79,7 @@ def unregister(ctx, name):
         print('unregister; caller is not owner of record')
         return False
 
+    checkAndDeleteForSale(ctx, name)
     return ns_do_unregister(ctx, name, ownerAddress)
 
 
@@ -237,16 +241,32 @@ def postForSale(ctx, name, amount):
     isOwnerAddress = CheckWitness(ownerAddress)
 
     if ownerAddress == b'':
-        print('unregister; record does not exist')
+        print('postForSale; record does not exist')
         return False
 
     if isOwnerAddress == False:
-        print('unregister; caller is not owner of record')
+        print('postForSale; caller is not owner of record')
         return False
 
     if amount > 0:
         putName(ctx, concat('FORSALE', name), amount)
 
+    return True
+
+def cancelForSale(ctx, name):
+    print('cancelForSale')
+    ownerAddress = getName(ctx, name)
+    isOwnerAddress = CheckWitness(ownerAddress)
+
+    if ownerAddress == b'':
+        print('cancelForSale; record does not exist')
+        return False
+
+    if isOwnerAddress == False:
+        print('cancelForSale; caller is not owner of record')
+        return False
+
+    checkAndDeleteForSale(ctx, name)
     return True
 
 def queryForSale(ctx, name):
@@ -275,10 +295,23 @@ def acceptSale(ctx, name, account):
     if requiredBalance <= accountBalance:
         feePaid = do_fee_collection(ctx, account, NS_REGISTER_FEE)
         saleAmountPaid = do_transfer(ctx, account, TOKEN_OWNER, forSaleRecord)
-        deleteName(ctx, concat('FORSALE', name))
+
         return ns_do_transfer(ctx, name, ownerAddress, account)
 
     return False
+
+def checkAndDeleteForSale(ctx, name):
+    forSaleRecord = getName(ctx, concat('FORSALE', name))
+
+    if forSaleRecord != b'':
+        return deleteName(ctx, concat('FORSALE', name))
+
+    return True
+
+
+def postOffer(ctx, name, amount, newOwnerAddress):
+    print('postOffer')
+
 
 def do_fee_collection(ctx, address, fee):
     feePaid = do_transfer(ctx, address, TOKEN_OWNER, fee)
@@ -293,7 +326,8 @@ def do_fee_collection(ctx, address, fee):
 
 def ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress):
 
-    print('delete approval record key complated, not removing record from owner list')
+    checkAndDeleteForSale(ctx, name)
+
     prevOwnerAddressNameList = getName(ctx, ownerAddress)
     if not prevOwnerAddressNameList:
         print('not possible')

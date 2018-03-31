@@ -19,7 +19,7 @@ from boa.interop.Neo.Storage import *
 
 ctx = GetContext()
 NEP5_METHODS = ['name', 'symbol', 'decimals', 'totalSupply', 'balanceOf', 'transfer', 'transferFrom', 'approve', 'allowance']
-NS_METHODS = ['nameServiceQuery', 'nameServiceQueryAddress', 'nameServiceUnregister', 'nameServiceRegister', 'nameServiceTransfer', 'nameServicePreApproveTransfer', 'nameServiceRequestTransfer','nameServicePostForSale','nameServiceAcceptSale','nameServiceQueryForSale']
+NS_METHODS = ['nameServiceQuery', 'nameServiceQueryAddress', 'nameServiceUnregister', 'nameServiceRegister', 'nameServiceTransfer', 'nameServicePreApproveTransfer', 'nameServiceRequestTransfer','nameServicePostForSale','nameServiceAcceptSale','nameServiceQueryForSale', 'nameServiceCancelForSale']
 
 
 def Main(operation, args):
