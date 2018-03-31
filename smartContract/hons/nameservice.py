@@ -57,6 +57,15 @@ def handle_name_service(ctx, operation, args):
     elif operation == 'nameServiceAcceptSale':
         return acceptSale(ctx, args[0], args[1])
 
+    elif operation == 'nameServicePostOffer':
+        return postOffer(ctx, args[0], args[1], args[2])
+
+    elif operation == 'nameServiceCancelOffer':
+        return cancelOffer(ctx, args[0], args[1])
+
+    elif operation == 'nameServiceFindOffers':
+        return findOffers(ctx, args[0])
+
     return False
 
 def query(ctx, name):
@@ -312,6 +321,116 @@ def checkAndDeleteForSale(ctx, name):
 def postOffer(ctx, name, amount, newOwnerAddress):
     print('postOffer')
 
+    ownerAddress = getName(ctx, name)
+    if ownerAddress == b'':
+        print('postOffer; record does not exist')
+        return False
+
+    isNewOwnerAddress = CheckWitness(newOwnerAddress)
+    if isNewOwnerAddress == False:
+        print('postOffer; caller is not same as offer address')
+        return False
+
+    if ownerAddress == newOwnerAddress:
+        print('postOffer; you already own this name')
+        return False
+
+    if amount <= 0:
+        print('postOffer; amount needs to be at least 1 HONS')
+        return False
+
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    currentOffer = getName(ctx, nameConcat)
+
+    if currentOffer == amount:
+        print('postOffer; Offer already set at this amount, no update needed')
+        return True
+
+    # no offer exists
+    # put offer amount into escrow
+    # collect transfer fee
+    # create offer record
+    if currentOffer == b'':
+        feePaid = do_transfer(ctx, newOwnerAddress, TOKEN_OWNER, amount + NS_TRANSFER_FEE)
+        if not feePaid:
+            print('postOffer; Insufficient funds to put offer into escrow + registration fee')
+            return False
+        putName(ctx, nameConcat, amount)
+        return True
+    # current offer already exists
+    # update current offer with new amount
+    variance = amount - currentOffer
+
+    # new offer larger than current OFFER
+    # add to escrow amount
+    # collect transfer fee again
+    # update offer record
+    if variance > 0:
+        feePaid = do_transfer(ctx, newOwnerAddress, TOKEN_OWNER, variance + NS_TRANSFER_FEE)
+        if not feePaid:
+            print('postOffer; Insufficient funds to update escrow + registration fee')
+            return False
+        putName(ctx, nameConcat, amount)
+        return True
+    # new offer is smaller than current offer
+    # withdrawl from escrow
+    # collect transfer fee again
+    # update offer record
+    invertVariance = 0 - variance
+    refund = invertVariance - NS_TRANSFER_FEE
+    # if refund is larger than transfer fee, subtract from refund amount
+    # transfer remainder to newOwnerAddress
+    if refund > 0:
+        feePaid = do_transfer(ctx, TOKEN_OWNER, newOwnerAddress, refund)
+        if not feePaid:
+            print('postOffer; Insufficient funds to update escrow + registration fee')
+            return False
+        putName(ctx, nameConcat, amount)
+        return True
+
+    # variance amount is less transfer fee, charge new Owner differnce
+    if refund < 0:
+        invertRefund = 0 - refund
+        feePaid = do_transfer(ctx, newOwnerAddress, TOKEN_OWNER, invertRefund)
+        if not feePaid:
+            print('postOffer; Insufficient funds to update escrow + registration fee')
+            return False
+        putName(ctx, nameConcat, amount)
+        return True
+    # variance is same as transfer fee, just update offer
+    putName(ctx, nameConcat, amount)
+    return True
+
+def cancelOffer(ctx, name, newOwnerAddress):
+    print('cancelOffer')
+
+    isNewOwnerAddress = CheckWitness(newOwnerAddress)
+    if isNewOwnerAddress == False:
+        print('cancelOffer; caller is not same as offer address')
+        return False
+
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    currentOffer = getName(ctx, nameConcat)
+
+    if currentOffer == b'':
+        print('cancelOffer; there is no offer record to cancel')
+        return False
+
+    # refund amount from escrow to new owner
+    # remove record
+    do_transfer(ctx, TOKEN_OWNER, newOwnerAddress, currentOffer)
+    deleteName(ctx, nameConcat)
+    return True
+
+def findOffers(ctx, name):
+    print('findOffers')
+
+    nameConcat = concat('OFFER', name)
+
+    # return findName(ctx, nameConcat)
+    return True
 
 def do_fee_collection(ctx, address, fee):
     feePaid = do_transfer(ctx, address, TOKEN_OWNER, fee)
@@ -413,6 +532,10 @@ def ns_do_unregister(ctx, name, ownerAddress):
 
     deleteName(ctx, name)
     return True
+
+
+# def findName(ctx, query):
+#     return Find(ctx, prefixStorageKey(query))
 
 
 def putName(ctx, key, value):
