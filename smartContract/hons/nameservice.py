@@ -66,6 +66,12 @@ def handle_name_service(ctx, operation, args):
     elif operation == 'nameServiceFindOffers':
         return findOffers(ctx, args[0])
 
+    elif operation == 'nameServiceGetOffer':
+        return getOffer(ctx, args[0], args[1])
+
+    elif operation == 'nameServiceAcceptOffer':
+        return acceptOffer(ctx, args[0], args[1])
+
     return False
 
 def query(ctx, name):
@@ -281,11 +287,11 @@ def cancelForSale(ctx, name):
 def queryForSale(ctx, name):
     return getName(ctx, concat('FORSALE', name))
 
-def acceptSale(ctx, name, account):
+def acceptSale(ctx, name, newOwnerAccount):
     print('acceptSale')
     ownerAddress = getName(ctx, name)
     forSaleRecord = getName(ctx, concat('FORSALE', name))
-    isCallerAddress = CheckWitness(account)
+    isCallerAddress = CheckWitness(newOwnerAccount)
 
     if ownerAddress == b'':
         print('acceptSale; name record does not exist')
@@ -299,14 +305,19 @@ def acceptSale(ctx, name, account):
         print('acceptSale; caller is not same as transfer to')
         return False
 
-    accountBalance = Get(ctx, account)
+    if newOwnerAccount == ownerAddress:
+        print('acceptSale; caller already owns this name')
+        return False
+
+    accountBalance = Get(ctx, newOwnerAccount)
     requiredBalance = forSaleRecord + NS_REGISTER_FEE
     if requiredBalance <= accountBalance:
-        feePaid = do_fee_collection(ctx, account, NS_REGISTER_FEE)
-        saleAmountPaid = do_transfer(ctx, account, TOKEN_OWNER, forSaleRecord)
+        feePaid = do_fee_collection(ctx, newOwnerAccount, NS_REGISTER_FEE)
+        saleAmountPaid = do_transfer(ctx, newOwnerAccount, TOKEN_OWNER, forSaleRecord)
 
-        return ns_do_transfer(ctx, name, ownerAddress, account)
+        return ns_do_transfer(ctx, name, ownerAddress, newOwnerAccount)
 
+    print('acceptSale; insufficient funds')
     return False
 
 def checkAndDeleteForSale(ctx, name):
@@ -351,12 +362,25 @@ def postOffer(ctx, name, amount, newOwnerAddress):
     # put offer amount into escrow
     # collect transfer fee
     # create offer record
+    # append offer key to offers array
+    #   TODO: replace once Storage.find is ready
     if currentOffer == b'':
-        feePaid = do_transfer(ctx, newOwnerAddress, TOKEN_OWNER, amount + NS_TRANSFER_FEE)
+        feePaid = do_fee_collection(ctx, newOwnerAddress, amount + NS_TRANSFER_FEE)
         if not feePaid:
             print('postOffer; Insufficient funds to put offer into escrow + registration fee')
             return False
         putName(ctx, nameConcat, amount)
+
+        offers = getName(ctx, concat('OFFERS', name))
+        if offers == b'':
+            offers = []
+        else:
+            offers = deserialize_bytearray(offers)
+
+        offers.append(newOwnerAddress)
+        offers = serialize_array(offers)
+        putName(ctx, concat('OFFERS', name), offers)
+
         return True
     # current offer already exists
     # update current offer with new amount
@@ -367,7 +391,7 @@ def postOffer(ctx, name, amount, newOwnerAddress):
     # collect transfer fee again
     # update offer record
     if variance > 0:
-        feePaid = do_transfer(ctx, newOwnerAddress, TOKEN_OWNER, variance + NS_TRANSFER_FEE)
+        feePaid = do_fee_collection(ctx, newOwnerAddress, variance + NS_TRANSFER_FEE)
         if not feePaid:
             print('postOffer; Insufficient funds to update escrow + registration fee')
             return False
@@ -392,7 +416,7 @@ def postOffer(ctx, name, amount, newOwnerAddress):
     # variance amount is less transfer fee, charge new Owner differnce
     if refund < 0:
         invertRefund = 0 - refund
-        feePaid = do_transfer(ctx, newOwnerAddress, TOKEN_OWNER, invertRefund)
+        feePaid = do_fee_collection(ctx, newOwnerAddress, invertRefund)
         if not feePaid:
             print('postOffer; Insufficient funds to update escrow + registration fee')
             return False
@@ -420,17 +444,91 @@ def cancelOffer(ctx, name, newOwnerAddress):
 
     # refund amount from escrow to new owner
     # remove record
+    # remove offer from offers collection
+    #   TODO: remove this step once Storage.find is avail
     do_transfer(ctx, TOKEN_OWNER, newOwnerAddress, currentOffer)
     deleteName(ctx, nameConcat)
+
+    offers = getName(ctx, concat('OFFERS', name))
+    offers = removeItem(offers, newOwnerAddress)
+
+    if offers == []:
+        deleteName(ctx, concat('OFFERS', name))
+    else:
+        offers = serialize_array(offers)
+        putName(ctx, concat('OFFERS', name), offers)
+
     return True
 
 def findOffers(ctx, name):
     print('findOffers')
+    return getName(ctx, concat('OFFERS', name))
 
-    nameConcat = concat('OFFER', name)
+def getOffer(ctx, name, newOwnerAddress):
+    print('getOffer')
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    return getName(ctx, nameConcat)
 
-    # return findName(ctx, nameConcat)
+def acceptOffer(ctx, name, newOwnerAddress):
+    print('acceptOffer')
+
+    ownerAddress = getName(ctx, name)
+    if ownerAddress == b'':
+        print('acceptOffer; record does not exist')
+        return False
+
+    isOwnerAddress = CheckWitness(ownerAddress)
+    if isOwnerAddress == False:
+        print('acceptOffer; caller is not same as owner address')
+        return False
+
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    offer = getName(ctx, nameConcat)
+
+    if offer == b'':
+        print('acceptOffer; this offer does not exist')
+        return False
+
+    # transfer funds from escrow to old owner for amount of offer - trans fee
+    if offer > NS_TRANSFER_FEE:
+        do_transfer(ctx, TOKEN_OWNER, ownerAddress, offer - NS_TRANSFER_FEE)
+    # if trans fee if more than offer, collect fee diff from old owner
+    elif offer < NS_TRANSFER_FEE:
+        feePaid = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE - offer)
+        if not feePaid:
+            print('acceptOffer; Insufficient funds for transfer fee')
+            return False
+
+    # transfer name
+    # delete offer and remove from list
+    print('acceptOffer; amount moved from escrow to owner, transfer name')
+    ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
+
+    print('acceptOffer; delete offer record')
+    deleteName(ctx, nameConcat)
+
+    print('acceptOffer; get offers list for name')
+    offers = getName(ctx, concat('OFFERS', name))
+
+    print('acceptOffer; deserialize offers list from storage')
+    offers = deserialize_bytearray(offers)
+
+    print('acceptOffer; remove accepted offer from list')
+    offers = removeItem(offers, newOwnerAddress)
+
+    if offers == []:
+        print('acceptOffer; delete offer list since none remain')
+        deleteName(ctx, concat('OFFERS', name))
+    else:
+        print('acceptOffer; serialize updated offer list')
+        offers = serialize_array(offers)
+        print('acceptOffer; put updated list back into storage')
+        putName(ctx, concat('OFFERS', name), offers)
+
     return True
+
 
 def do_fee_collection(ctx, address, fee):
     feePaid = do_transfer(ctx, address, TOKEN_OWNER, fee)
@@ -439,7 +537,7 @@ def do_fee_collection(ctx, address, fee):
         print('Insufficient funds to pay registration fee')
         return False
 
-    print('register; fees paid, record registration')
+    print('do_fee_collection; fees paid successfully')
     return True
 
 
@@ -472,7 +570,7 @@ def ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress):
     else:
         newOwnerAddressNameList = deserialize_bytearray(newOwnerAddressNameList)
 
-    newOwnerAddressNameList = newOwnerAddressNameList.append(name)
+    newOwnerAddressNameList = addItem(newOwnerAddressNameList, name)
     serializedList = serialize_array(newOwnerAddressNameList)
     putName(ctx, newOwnerAddress, serializedList)
 
