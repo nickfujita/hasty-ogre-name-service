@@ -504,7 +504,7 @@ def acceptOffer(ctx, name, newOwnerAddress):
     # transfer name
     # delete offer and remove from list
     print('acceptOffer; amount moved from escrow to owner, transfer name')
-    ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
+    nameTransferSuccess = ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
 
     print('acceptOffer; delete offer record')
     deleteName(ctx, nameConcat)
@@ -518,14 +518,14 @@ def acceptOffer(ctx, name, newOwnerAddress):
     print('acceptOffer; remove accepted offer from list')
     offers = removeItem(offers, newOwnerAddress)
 
-    if offers == []:
+    if len(offers) == 0:
         print('acceptOffer; delete offer list since none remain')
-        deleteName(ctx, concat('OFFERS', name))
+        result = deleteName(ctx, concat('OFFERS', name))
     else:
         print('acceptOffer; serialize updated offer list')
         offers = serialize_array(offers)
         print('acceptOffer; put updated list back into storage')
-        putName(ctx, concat('OFFERS', name), offers)
+        result = putName(ctx, concat('OFFERS', name), offers)
 
     return True
 
