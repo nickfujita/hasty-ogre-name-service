@@ -45,6 +45,8 @@ def handle_name_service(ctx, operation, args):
     elif operation == 'nameServiceRequestTransfer':
         return requestTransfer(ctx, args[0], args[1], args[2])
 
+    # SALE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     elif operation == 'nameServiceQueryForSale':
         return queryForSale(ctx, args[0])
 
@@ -56,6 +58,8 @@ def handle_name_service(ctx, operation, args):
 
     elif operation == 'nameServiceAcceptSale':
         return acceptSale(ctx, args[0], args[1])
+
+    # OFFER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     elif operation == 'nameServicePostOffer':
         return postOffer(ctx, args[0], args[1], args[2])
@@ -250,6 +254,11 @@ def requestTransfer(ctx, name, ownerAddress, newOwnerAddress):
 
     return False
 
+
+def queryForSale(ctx, name):
+    return getName(ctx, concat('FORSALE', name))
+
+
 def postForSale(ctx, name, amount):
     print('postForSale')
     ownerAddress = getName(ctx, name)
@@ -268,6 +277,7 @@ def postForSale(ctx, name, amount):
 
     return True
 
+
 def cancelForSale(ctx, name):
     print('cancelForSale')
     ownerAddress = getName(ctx, name)
@@ -284,8 +294,6 @@ def cancelForSale(ctx, name):
     checkAndDeleteForSale(ctx, name)
     return True
 
-def queryForSale(ctx, name):
-    return getName(ctx, concat('FORSALE', name))
 
 def acceptSale(ctx, name, newOwnerAccount):
     print('acceptSale')

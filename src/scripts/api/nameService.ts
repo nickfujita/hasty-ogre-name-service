@@ -1,28 +1,37 @@
-import Neon, { u, wallet, sc, api, rpc } from '@cityofzion/neon-js';
+import Neon, { u, wallet, sc, api } from '@cityofzion/neon-js';
 import { readInvoke, invoke } from '../api/contract';
 import { nep5Tokens } from '../constants/test';
 import { getNet } from './net';
+import { deserializeBytearray } from '../utils/byteArray';
+
+function invokeHons(addressObj, method, params, intents?, gasOverride?) {
+  const honsTokenAddress = nep5Tokens.hons;
+  invoke(addressObj, honsTokenAddress, method, params, intents, gasOverride);
+}
+
+function readInvokeHons(method, params) {
+  const honsTokenAddress = nep5Tokens.hons;
+  return readInvoke(honsTokenAddress, method, params);
+}
 
 export function queryName(name): Promise<any> {
   const method = 'nameServiceQuery';
   const parsedName = sc.ContractParam.string(name);
-  const honsTokenAddress = nep5Tokens.hons;
 
-  return readInvoke(honsTokenAddress, method, [parsedName])
+  return readInvokeHons(method, [parsedName])
   .then(res => {
     if (Boolean(res)) {
       res = u.reverseHex(res);
       res = wallet.getAddressFromScriptHash(res);
     }
-    // return res;
+    return res;
   });
 }
 
 export function queryAddress(address): Promise<any> {
   const method = 'nameServiceQueryAddress';
   const parsedAddress = sc.ContractParam.byteArray(address, 'address');
-  const honsTokenAddress = nep5Tokens.hons;
-  return readInvoke(honsTokenAddress, method, [parsedAddress])
+  return readInvokeHons(method, [parsedAddress])
   .then(res => {
     if (res) {
       let items = deserializeBytearray(res);
@@ -35,15 +44,13 @@ export function register(name, addressObj) {
   const method = 'nameServiceRegister';
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(addressObj.address, 'address');
-  const honsTokenAddress = nep5Tokens.hons;
-  invoke(addressObj, honsTokenAddress, method, [parsedName, scFromAddress]);
+  invokeHons(addressObj, method, [parsedName, scFromAddress]);
 }
 
 export function unregister(name, addressObj) {
   const method = 'nameServiceUnregister';
   const parsedName = sc.ContractParam.string(name);
-  const honsTokenAddress = nep5Tokens.hons;
-  invoke(addressObj, honsTokenAddress, method, [parsedName]);
+  invokeHons(addressObj, method, [parsedName]);
 }
 
 export function transfer(name, callerAccountObj, fromAddress, toAddress) {
@@ -51,8 +58,7 @@ export function transfer(name, callerAccountObj, fromAddress, toAddress) {
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
   const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
-  const honsTokenAddress = nep5Tokens.hons;
-  invoke(callerAccountObj, honsTokenAddress, method, [parsedName, scFromAddress, scToAddress], [], 1);
+  invokeHons(callerAccountObj, method, [parsedName, scFromAddress, scToAddress], [], 1);
 }
 
 export function preApproveTransfer(name, callerAccountObj, fromAddress, toAddress) {
@@ -60,8 +66,7 @@ export function preApproveTransfer(name, callerAccountObj, fromAddress, toAddres
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
   const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
-  const honsTokenAddress = nep5Tokens.hons;
-  invoke(callerAccountObj, honsTokenAddress, method, [parsedName, scFromAddress, scToAddress]);
+  invokeHons(callerAccountObj, method, [parsedName, scFromAddress, scToAddress]);
 }
 
 export function requestTransfer(name, callerAccountObj, fromAddress, toAddress) {
@@ -69,43 +74,72 @@ export function requestTransfer(name, callerAccountObj, fromAddress, toAddress) 
   const parsedName = sc.ContractParam.string(name);
   const scFromAddress = sc.ContractParam.byteArray(fromAddress, 'address');
   const scToAddress = sc.ContractParam.byteArray(toAddress, 'address');
-  const honsTokenAddress = nep5Tokens.hons;
-  invoke(callerAccountObj, honsTokenAddress, method, [parsedName, scFromAddress, scToAddress]);
+  invokeHons(callerAccountObj, method, [parsedName, scFromAddress, scToAddress]);
 }
 
-// 01020103636174010463617431
-function deserializeBytearray(data) {
-  let mutatedData = data;
-  const collection_length_length = Number(mutatedData.slice(0, 2));
-  mutatedData = mutatedData.slice(2);
+export function queryForSale(name): Promise<number> {
+  const method = 'nameServiceQueryForSale';
+  const parsedName = sc.ContractParam.string(name);
+  return readInvokeHons(method, [parsedName]);
+}
 
-  // # get length of collection
-  const collection_len = Number(mutatedData.slice(0, collection_length_length + 1));
-  mutatedData = mutatedData.slice(collection_length_length + 1);
+export function postForSale(name, addressObj, amount) {
+  const method = 'nameServicePostForSale';
+  const parsedName = sc.ContractParam.string(name);
+  invokeHons(addressObj, method, [parsedName, amount]);
+}
 
-  // # create a new collection
-  const new_collection = [];
+export function cancelForSale(name, addressObj) {
+  const method = 'nameServiceCancelForSale';
+  const parsedName = sc.ContractParam.string(name);
+  invokeHons(addressObj, method, [parsedName]);
+}
 
-  for (let i = 0; i < collection_len; i++) {
+export function acceptSale(name, addressObj, newOwnerAccount) {
+  const method = 'nameServiceAcceptSale';
+  const parsedName = sc.ContractParam.string(name);
+  const scNewOwnerAccount = sc.ContractParam.byteArray(newOwnerAccount, 'address');
+  invokeHons(addressObj, method, [parsedName, scNewOwnerAccount]);
+}
 
-    // # get the data length length
-    const itemlen_len = Number(mutatedData.slice(0, 2));
-    mutatedData = mutatedData.slice(2);
+export function postOffer(name, addressObj, amount) {
+  const method = 'nameServicePostOffer';
+  const parsedName = sc.ContractParam.string(name);
+  const scNewOwnerAccount = sc.ContractParam.byteArray(addressObj.address, 'address');
+  invokeHons(addressObj, method, [parsedName, amount, scNewOwnerAccount]);
+}
 
-    // # get the length of the data
-    const item_len = Number(mutatedData.slice(0, itemlen_len + 1)) * 2;
-    mutatedData = mutatedData.slice(itemlen_len + 1);
+export function cancelOffer(name, addressObj) {
+  const method = 'nameServiceCancelOffer';
+  const parsedName = sc.ContractParam.string(name);
+  const scNewOwnerAccount = sc.ContractParam.byteArray(addressObj.address, 'address');
+  invokeHons(addressObj, method, [parsedName, scNewOwnerAccount]);
+}
 
-    // # get the data
-    const item = Number(mutatedData.slice(0, item_len));
-    console.log(itemlen_len, item_len, item, mutatedData);
-    mutatedData = mutatedData.slice(item_len);
-    console.log(itemlen_len, item_len, item, mutatedData);
+export function findOffers(name): Promise<any> {
+  const method = 'nameServiceFindOffers';
+  const parsedName = sc.ContractParam.string(name);
+  return readInvokeHons(method, [parsedName])
+  .then(res => {
+    if (res) {
+      let items = deserializeBytearray(res);
+      return items.map(item => {
+        const scriptHash = u.reverseHex(item);
+        return wallet.getAddressFromScriptHash(scriptHash);
+      });
+    }
+  });
+}
 
-    // # store it in collection
-    new_collection.push(item);
+export function getOffer(name): Promise<number> {
+  const method = 'nameServiceGetOffer';
+  const parsedName = sc.ContractParam.string(name);
+  return readInvokeHons(method, [parsedName]);
+}
 
-  }
-
-  return new_collection;
+export function acceptOffer(name, addressObj) {
+  const method = 'nameServiceAcceptOffer';
+  const parsedName = sc.ContractParam.string(name);
+  const scNewOwnerAccount = sc.ContractParam.byteArray(addressObj.address, 'address');
+  invokeHons(addressObj, method, [parsedName, scNewOwnerAccount]);
 }

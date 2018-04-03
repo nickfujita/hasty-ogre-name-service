@@ -1,13 +1,3 @@
-"""
-NEX ICO Template
-===================================
-
-Author: Thomas Saunders
-Email: tom@neonexchange.org
-
-Date: Dec 11 2017
-
-"""
 from hons.txio import get_asset_attachments
 from hons.token import *
 from hons.crowdsale import *
@@ -23,13 +13,6 @@ NS_METHODS = ['nameServiceQuery', 'nameServiceQueryAddress', 'nameServiceUnregis
 
 
 def Main(operation, args):
-    """
-
-    :param operation: str The name of the operation to perform
-    :param args: list A list of arguments along with the operation
-    :return:
-        bytearray: The result of the operation
-    """
 
     trigger = GetTrigger()
 
@@ -88,12 +71,7 @@ def Main(operation, args):
 
 
 def deploy():
-    """
 
-    :param token: Token The token to deploy
-    :return:
-        bool: Whether the operation was successful
-    """
     if not CheckWitness(TOKEN_OWNER):
         print("Must be owner to deploy")
         return False
