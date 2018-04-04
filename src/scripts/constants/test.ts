@@ -1,3 +1,3 @@
 export const nep5Tokens = {
-  hons: 'c621f570603f5ec1a896d00455a91015c3eb0811',
+  hons: 'f523516fc26409452777a7c88c2cc4912fb44ab1',
 };

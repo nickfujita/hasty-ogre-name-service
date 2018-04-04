@@ -1,4 +1,5 @@
 // 01020103636174010463617431
+// 0102010466697368010466726f67
 export function deserializeBytearray(data) {
   let mutatedData = data;
   const collection_length_length = Number(mutatedData.slice(0, 2));
@@ -22,7 +23,7 @@ export function deserializeBytearray(data) {
     mutatedData = mutatedData.slice(itemlen_len + 1);
 
     // # get the data
-    const item = Number(mutatedData.slice(0, item_len));
+    const item = mutatedData.slice(0, item_len);
     console.log(itemlen_len, item_len, item, mutatedData);
     mutatedData = mutatedData.slice(item_len);
     console.log(itemlen_len, item_len, item, mutatedData);

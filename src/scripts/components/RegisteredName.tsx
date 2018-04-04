@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as Redux from 'redux';
-import { unregisterName, transferName } from '../actions/nameService';
+import { unregisterName, preApproveTransfer } from '../actions/nameService';
 
 interface RegisteredNameProps extends React.Props<any> {
   dispatch: Redux.Dispatch<any>;
@@ -33,7 +33,7 @@ class RegisteredName extends React.Component<RegisteredNameProps, any> {
   handleTransfer() {
     const {dispatch, address, name} = this.props;
     const toAddress = this.nameInput.value;
-    toAddress && dispatch(transferName(name, address, address, toAddress));
+    toAddress && dispatch(preApproveTransfer(name, address, address, toAddress));
     alert(`Your request to transfer the name: ${name} from your address: ${address} to it's new owner address: ${toAddress} has been submitted. Please wait until the next block to for confirmation. Please also have the recipient of this name submit a transfer request as well if they haven't already done so.`);
     this.nameInput.value = null;
   }

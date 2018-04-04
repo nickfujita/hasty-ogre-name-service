@@ -35,7 +35,7 @@ export function unregisterName(name, address) {
   };
 }
 
-export function transferName(name, callerAddress, fromAddress, toAddress) {
+export function preApproveTransfer(name, callerAddress, fromAddress, toAddress) {
   return (dispatch, getState) => {
     const {wallets} = getState().neo;
     const privateKey = wallets[callerAddress];
@@ -44,6 +44,19 @@ export function transferName(name, callerAddress, fromAddress, toAddress) {
       privateKey,
     };
 
-    nameService.transfer(name, callerAccountObj, fromAddress, toAddress);
+    nameService.preApproveTransfer(name, callerAccountObj, fromAddress, toAddress);
+  };
+}
+
+export function requestTransfer(name, callerAddress, fromAddress, toAddress) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.requestTransfer(name, callerAccountObj, fromAddress, toAddress);
   };
 }

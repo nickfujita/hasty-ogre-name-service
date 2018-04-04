@@ -35,7 +35,7 @@ export function queryAddress(address): Promise<any> {
   .then(res => {
     if (res) {
       let items = deserializeBytearray(res);
-      return items.map(item => u.hexstring2str(String(item)));
+      return items.map(item => u.hexstring2str(item));
     }
   });
 }
