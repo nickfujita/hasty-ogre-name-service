@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as Redux from 'redux';
-import { registerName, unregisterName, transferName } from '../actions/nameService';
+import { registerName, unregisterName, requestTransfer } from '../actions/nameService';
 import { queryName } from '../api/nameService';
 import RegisteredName from './RegisteredName';
 
@@ -50,7 +50,7 @@ class NameService extends React.Component<NameServiceProps, any> {
     const {dispatch, address} = this.props;
     const {currentNameOwner} = this.state;
     const name = this.nameInput.value;
-    name && currentNameOwner && dispatch(transferName(name, address, currentNameOwner, address));
+    name && currentNameOwner && dispatch(requestTransfer(name, address, currentNameOwner, address));
     alert(`Your request to transfer the name: ${name} from the current owner ${currentNameOwner} to your address ${address} has been submitted. Please wait until the next block to for confirmation. Please also have the owner of this name submit a transfer request as well if they haven't already done so.`);
     this.clearRegistration();
   }

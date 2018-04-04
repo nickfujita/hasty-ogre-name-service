@@ -1,8 +1,10 @@
-from boa.code.builtins import concat, list, range
+from boa.builtins import concat, list, range
 
 # commonly called for data pulled from storage
 # very helpful for storing arrays
 def deserialize_bytearray(data):
+
+    print('deserialize_bytearray')
 
     # get length of length
     collection_length_length = data[0:1]

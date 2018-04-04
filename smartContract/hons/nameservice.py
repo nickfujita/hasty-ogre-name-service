@@ -1,466 +1,660 @@
-from boa.blockchain.vm.Neo.Runtime import CheckWitness, Notify
-from hons.utils.storage import StorageAPI
-from hons.token.nep5 import NEP5Handler
-from hons.token.honstoken import Token
-from hons.utils.serialization import deserialize_bytearray, serialize_array, serialize_var_length_item
+from boa.interop.Neo.Runtime import CheckWitness, Notify
+from boa.interop.Neo.Storage import *
+from boa.builtins import concat
+from hons.nep5 import *
+from hons.token import *
+from hons.serialization import *
+from hons.arrayUtil import *
+#
+NS_REGISTER_FEE = 10 * 100_000_000  # 10 to owners * 10^8
+NS_TRANSFER_FEE = 5 * 100_000_000   # 5 to owners * 10^8
+NS_STORAGE_PREFIX = 'NAMESERVICE'
 
-class NameService():
+def handle_name_service(ctx, operation, args):
 
-    register_fee = 10 * 100000000  # 10 to owners * 10^8
-    transfer_fee = 5 * 100000000   # 5 to owners * 10^8
-    storagePrefix = 'NAMESERVICE'
+    # retreive the address associated with a given name
+    # anyone can call
+    if operation == 'nameServiceQuery':
+        return query(ctx, args[0])
 
-    def invoke(self, operation, args, nep5: NEP5Handler, token: Token, storage: StorageAPI):
+    # retreive a list of names associated with this address
+    # anyone can call
+    # output: array as bytearray
+    elif operation == 'nameServiceQueryAddress':
+        return queryAddress(ctx, args[0])
 
-        arg_error = 'Incorrect Arg Length'
+    # remove a link between a given name and it's address
+    # can only be called by name owner
+    elif operation == 'nameServiceUnregister':
+        return unregister(ctx, args[0])
 
-        Notify(args)
+    # create a name to address association for a small fee
+    # can only be called by owner of address being registered
+    elif operation == 'nameServiceRegister':
+        return register(ctx, args[0], args[1])
 
-        # retreive the address associated with a given name
-        # anyone can call
-        if operation == 'query':
-            if len(args) != 1:
-                return arg_error
+    # # transfer of a name from owner to a new address
+    # # needs to be called twice, once by owner, and once by requester
+    # # first one to call creates transfer agreement
+    # # secong one to call finalizes transfer agreement, and transfer is executed
+    # # if both parties to not fulfil agreement, transfer will not take place
 
-            name = args[0]
-            return self.query(storage, name)
+    elif operation == 'nameServicePreApproveTransfer':
+        return preApproveTransfer(ctx, args[0], args[1], args[2])
 
-        # retreive a list of names associated with this address
-        # anyone can call
-        # output: array as bytearray
-        if operation == 'queryAddress':
-            if len(args) != 1:
-                return arg_error
+    elif operation == 'nameServiceRequestTransfer':
+        return requestTransfer(ctx, args[0], args[1], args[2])
 
-            address = args[0]
-            return self.queryAddress(storage, address)
+    # SALE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        # remove a link between a given name and it's address
-        # can only be called by name owner
-        if operation == 'unregister':
-            if len(args) != 1:
-                return arg_error
+    elif operation == 'nameServiceQueryForSale':
+        return queryForSale(ctx, args[0])
 
-            name = args[0]
-            return self.unregister(storage, name)
+    elif operation == 'nameServicePostForSale':
+        return postForSale(ctx, args[0], args[1])
 
-        # create a name to address association for a small fee
-        # can only be called by owner of address being registered
-        if operation == 'register':
-            if len(args) != 2:
-                return arg_error
+    elif operation == 'nameServiceCancelForSale':
+        return cancelForSale(ctx, args[0])
 
-            name = args[0]
-            ownerAddress = args[1]
-            return self.register(storage, token, nep5, name, ownerAddress)
+    elif operation == 'nameServiceAcceptSale':
+        return acceptSale(ctx, args[0], args[1])
 
-        # transfer of a name from owner to a new address
-        # needs to be called twice, once by owner, and once by requester
-        # first one to call creates transfer agreement
-        # secong one to call finalizes transfer agreement, and transfer is executed
-        # if both parties to not fulfil agreement, transfer will not take place
-        if operation == 'transfer':
-            if len(args) != 3:
-                return arg_error
+    # OFFER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            name = args[0]
-            ownerAddress = args[1]
-            newOwnerAddress = args[2]
-            return self.transfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+    elif operation == 'nameServicePostOffer':
+        return postOffer(ctx, args[0], args[1], args[2])
 
-        if operation == 'preApproveTransfer':
-            if len(args) != 3:
-                return arg_error
+    elif operation == 'nameServiceCancelOffer':
+        return cancelOffer(ctx, args[0], args[1])
 
-            name = args[0]
-            ownerAddress = args[1]
-            newOwnerAddress = args[2]
-            return self.preApproveTransfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+    elif operation == 'nameServiceFindOffers':
+        return findOffers(ctx, args[0])
 
-        if operation == 'requestTransfer':
-            if len(args) != 3:
-                return arg_error
+    elif operation == 'nameServiceGetOffer':
+        return getOffer(ctx, args[0], args[1])
 
-            name = args[0]
-            ownerAddress = args[1]
-            newOwnerAddress = args[2]
-            return self.requestTransfer(storage, token, nep5, name, ownerAddress, newOwnerAddress)
+    elif operation == 'nameServiceAcceptOffer':
+        return acceptOffer(ctx, args[0], args[1])
+
+    return False
+
+def query(ctx, name):
+    return getName(ctx, name)
 
 
-    def query(self, storage: StorageAPI, name):
-        return self.getName(storage, name)
+def queryAddress(ctx, address):
+    return getName(ctx, address)
 
 
-    def queryAddress(self, storage: StorageAPI, address):
-        serializedList = self.getName(storage, address)
-        addressNameList = deserialize_bytearray(serializedList)
-        return addressNameList
+def unregister(ctx, name):
+    ownerAddress = getName(ctx, name)
+    isOwnerAddress = CheckWitness(ownerAddress)
+
+    if ownerAddress == b'':
+        print('unregister; record does not exist')
+        return False
+
+    if isOwnerAddress == False:
+        print('unregister; caller is not owner of record')
+        return False
+
+    checkAndDeleteForSale(ctx, name)
+    return ns_do_unregister(ctx, name, ownerAddress)
 
 
-    def unregister(self, storage: StorageAPI, name):
-        ownerAddress = self.getName(storage, name)
-        isOwnerAddress = CheckWitness(ownerAddress)
+def register(ctx, name, ownerAddress):
+    isOwnerAddress = CheckWitness(ownerAddress)
+    currentOwnerAddress = getName(ctx, name)
 
-        if not ownerAddress:
-            print('unregister; record does not exist')
-            return False
+    if isOwnerAddress == False:
+        print('register; contract caller is not same as ownerAddress')
+        return False
 
-        if not isOwnerAddress:
-            print('unregister; caller is not owner of record')
-            return False
+    if currentOwnerAddress != b'':
+        if currentOwnerAddress == ownerAddress:
+            print('register; name is already registered to caller address')
+        else:
+            print('register; name is already registered to another address')
+        return False
 
-        print('self')
-        return self.do_unregister(storage, name, ownerAddress)
+    print('register; all qualifications are met, about to pay fee')
+    feePaid = do_fee_collection(ctx, ownerAddress, NS_REGISTER_FEE)
+    print('just paid')
 
+    if feePaid == False:
+        print('Insufficient funds to pay registration fee')
+        return False
 
-    def register(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress):
-        isOwnerAddress = CheckWitness(ownerAddress)
-        currentOwnerAddress = self.getName(storage, name)
+    print('register; fees paid, record registration')
+    return ns_do_register(ctx, name, ownerAddress)
 
-        if not isOwnerAddress:
-            print('register; contract caller is not same as ownerAddress')
-            return False
+def preApproveTransfer(ctx, name, ownerAddress, newOwnerAddress):
+    print('preApproveTransfer')
 
-        if currentOwnerAddress:
-            if currentOwnerAddress == ownerAddress:
-                print('register; name is already registered to caller address')
-            else:
-                print('register; name is already registered to another address')
-            return False
+    if ownerAddress == newOwnerAddress:
+        print('transfer; ownerAddress and newOwnerAddress are the same')
+        return False
 
-        print('register; all qualifications are met, about to pay fee')
-        transferArgs = [ownerAddress, token.owner, self.register_fee]
-        feePaid = nep5.handle_nep51('transfer', transferArgs, token, storage)
+    if CheckWitness(ownerAddress) == False:
+        print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
+        return False
 
-        if not feePaid:
-            print('Insufficient funds to pay registration fee')
-            return False
+    currentOwnerAddress = getName(ctx, name)
+    if currentOwnerAddress == b'':
+        print('transfer; name record is empty, please register instead')
+        return False
 
-        print('register; fees paid, record registration')
-        return self.do_register(storage, name, ownerAddress)
+    if currentOwnerAddress != ownerAddress:
+        print('transfer; contract caller is not owner of name record')
+        return False
 
-    def preApproveTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
-        print('preApproveTransfer')
+    # if passing concat method more than 2 arguments, it pushes extra item on stack
+    approvalRecordKey = concat(name, ownerAddress)
+    approvalRecordKey = concat(approvalRecordKey, newOwnerAddress)
+    approvalRecordRaw = getName(ctx, approvalRecordKey)
 
-        if ownerAddress == newOwnerAddress:
-            print('transfer; ownerAddress and newOwnerAddress are the same')
-            return False
+    if approvalRecordRaw == b'':
+        print('transfer; no approval record, create one with approval from owner')
+        feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
+        if feesCollected:
+            valueRaw = [True, False]
+            value = serialize_array(valueRaw)
+            putName(ctx, approvalRecordKey, value)
+            return True
+        return False
 
-        if not CheckWitness(ownerAddress):
-            print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
-            return False
+    print('approvalRecordRaw')
+    # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
+    approvalRecord = deserialize_bytearray(approvalRecordRaw)
+    print('approvalRecord')
+    ownerApproves = approvalRecord[0]
+    print('ownerApproves')
+    newOwnerApproves = approvalRecord[1]
+    print('newOwnerApproves')
 
-        currentOwnerAddress = self.getName(storage, name)
-        if not currentOwnerAddress:
-            print('transfer; name record is empty, please register instead')
-            return False
-
-        if currentOwnerAddress != ownerAddress:
-            print('transfer; contract caller is not owner of name record')
-            return False
-
-        approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
-        approvalRecordRaw = self.getName(storage, approvalRecordKey)
-
-        if not approvalRecordRaw:
-            print('transfer; no approval record, create one with approval from owner')
-            feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
-            if feesCollected:
-                valueRaw = [True, False]
-                value = serialize_array(valueRaw)
-                return self.putName(storage, approvalRecordKey, value)
-            return False
-
-        print('approvalRecordRaw')
-        # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
-        approvalRecord = deserialize_bytearray(approvalRecordRaw)
-        print('approvalRecord')
-        ownerApproves = approvalRecord[0]
-        print('ownerApproves')
-        newOwnerApproves = approvalRecord[1]
-        print('newOwnerApproves')
-
-        if ownerApproves and not newOwnerApproves:
+    # if not this format, gets error from compiler
+    # [I 180307 16:44:24 pytoken:253] Op Not Converted: JUMP_IF_FALSE_OR_POP
+    if ownerApproves == True:
+        if newOwnerApproves == False:
             print('transfer; owner pre approval already created, but waiting for new owner')
             return False
 
-        elif not ownerApproves and newOwnerApproves:
+    # if not this format, gets error from compiler
+    # [I 180307 16:44:24 pytoken:253] Op Not Converted: JUMP_IF_FALSE_OR_POP
+    if ownerApproves == False:
+        if newOwnerApproves == True:
             print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
-            feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
+            feesCollected = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE)
             if feesCollected:
-                return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
+                deleteName(ctx, approvalRecordKey)
+                return ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
             return False
 
+    return False
+
+def requestTransfer(ctx, name, ownerAddress, newOwnerAddress):
+    print('transfer')
+    isNewOwnerAddress = CheckWitness(newOwnerAddress)
+
+    if isNewOwnerAddress == False:
+        print('transfer; contract caller is not the same as new owner')
         return False
 
-    def requestTransfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
-        print('transfer')
-        isNewOwnerAddress = CheckWitness(newOwnerAddress)
+    currentOwnerAddress = getName(ctx, name)
 
-        if not isNewOwnerAddress:
-            print('transfer; contract caller is not the same as new owner')
-            return False
+    if currentOwnerAddress == b'':
+        print('transfer; name record is empty, please register instead')
+        return False
 
-        currentOwnerAddress = self.getName(storage, name)
+    if currentOwnerAddress != ownerAddress:
+        print('transfer; request from owner is not owner of this name')
+        return False
 
-        if not currentOwnerAddress:
-            print('transfer; name record is empty, please register instead')
-            return False
+    # if passing concat method more than 2 arguments, it pushes extra item on stack
+    approvalRecordKey = concat(name, ownerAddress)
+    approvalRecordKey = concat(approvalRecordKey, newOwnerAddress)
+    approvalRecordRaw = getName(ctx, approvalRecordKey)
 
-        approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
-        approvalRecordRaw = self.getName(storage, approvalRecordKey)
+    if approvalRecordRaw == b'':
+        print('transfer; no approval record, create one with approval from new owner')
+        feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
+        if feesCollected:
+            valueRaw = [False, True]
+            value = serialize_array(valueRaw)
+            putName(ctx, approvalRecordKey, value)
+            return True
+        return False
 
-        if not approvalRecordRaw:
-            print('transfer; no approval record, create one with approval from new owner')
-            feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
-            if feesCollected:
-                valueRaw = [False, True]
-                value = serialize_array(valueRaw)
-                return self.putName(storage, approvalRecordKey, value)
-            return False
+    print('approvalRecordRaw')
+    # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
+    approvalRecord = deserialize_bytearray(approvalRecordRaw)
+    print('approvalRecord')
+    ownerApproves = approvalRecord[0]
+    print('ownerApproves')
+    newOwnerApproves = approvalRecord[1]
+    print('newOwnerApproves')
 
-        print('approvalRecordRaw')
-        # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
-        approvalRecord = deserialize_bytearray(approvalRecordRaw)
-        print('approvalRecord')
-        ownerApproves = approvalRecord[0]
-        print('ownerApproves')
-        newOwnerApproves = approvalRecord[1]
-        print('newOwnerApproves')
-
-        if not ownerApproves and newOwnerApproves:
+    # if not this format, gets error from compiler
+    # [I 180307 16:44:24 pytoken:253] Op Not Converted: JUMP_IF_FALSE_OR_POP
+    if ownerApproves == False:
+        if newOwnerApproves == True:
             print('transfer; new owner pre approval already created, but waiting for current owner')
             return False
 
-        if ownerApproves and not newOwnerApproves:
+    # if not this format, gets error from compiler
+    # [I 180307 16:44:24 pytoken:253] Op Not Converted: JUMP_IF_FALSE_OR_POP
+    if ownerApproves == True:
+        if newOwnerApproves == False:
             print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
-            feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
-            if feesCollected:
+            feesCollected = do_fee_collection(ctx, newOwnerAddress, NS_TRANSFER_FEE)
+            if feesCollected :
                 print('feesCollected => do_transfer')
-                print(approvalRecordKey)
-                return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
-            return False
+                deleteName(ctx, approvalRecordKey)
+                return ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
 
+    return False
+
+
+def queryForSale(ctx, name):
+    return getName(ctx, concat('FORSALE', name))
+
+
+def postForSale(ctx, name, amount):
+    print('postForSale')
+    ownerAddress = getName(ctx, name)
+    isOwnerAddress = CheckWitness(ownerAddress)
+
+    if ownerAddress == b'':
+        print('postForSale; record does not exist')
         return False
 
-
-    def transfer(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, name, ownerAddress, newOwnerAddress):
-        Notify('DEPRECATED: please use preApproveTransfer when calling from name owner and requestTransfer when calling from requester. This consolidated transfer operation is too heavy')
-        print('transfer')
-        isOwnerAddress = CheckWitness(ownerAddress)
-        isNewOwnerAddress = CheckWitness(newOwnerAddress)
-        currentOwnerAddress = self.getName(storage, name)
-        approvalRecordKey = concat(name, ownerAddress, newOwnerAddress)
-        print('approvalRecordKey')
-        print(approvalRecordKey)
-        approvalRecordRaw = self.getName(storage, approvalRecordKey)
-
-        if approvalRecordRaw:
-            print('approvalRecordRaw')
-            # [{ownerAddressApproval: boolean}, {newOwnerAddress_approval: boolean}]
-            approvalRecord = deserialize_bytearray(approvalRecordRaw)
-            print('approvalRecord')
-            ownerApproves = approvalRecord[0]
-            print('ownerApproves')
-            newOwnerApproves = approvalRecord[1]
-            print('newOwnerApproves')
-
-        if not currentOwnerAddress:
-            print('transfer; name record is empty, please register instead')
-            return False
-
-        elif not isOwnerAddress and not isNewOwnerAddress:
-            print('transfer; contract caller is not same as ownerAddress or newOwnerAddress')
-            return False
-
-        elif isOwnerAddress:
-            print('transfer; contract caller is owner')
-
-            if currentOwnerAddress != ownerAddress:
-                print('transfer; contract caller is not owner of name record')
-                return False
-
-            elif not approvalRecord:
-                print('transfer; no approval record, create one with approval from owner')
-                feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
-                if feesCollected:
-                    valueRaw = [True, False]
-                    value = serialize_array(valueRaw)
-                    return self.putName(storage, approvalRecordKey, value)
-                return False
-
-            elif ownerApproves and not newOwnerApproves:
-                print('transfer; owner pre approval already created, but waiting for new owner')
-                return False
-
-            elif not ownerApproves and newOwnerApproves:
-                print('transfer; approval record exists and new owner pre approved transfer; execute transfer')
-                feesCollected = self.do_fee_collection(storage, token, nep5, ownerAddress, self.transfer_fee)
-                if feesCollected:
-                    return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
-                return False
-
-        elif isNewOwnerAddress:
-            print('transfer; contract caller is new owner')
-
-            if not approvalRecord:
-                print('transfer; no approval record, create one with approval from new owner')
-                feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
-                if feesCollected:
-                    valueRaw = [False, True]
-                    value = serialize_array(valueRaw)
-                    return self.putName(storage, approvalRecordKey, value)
-                return False
-
-            if not ownerApproves and newOwnerApproves:
-                print('transfer; new owner pre approval already created, but waiting for current owner')
-                return False
-
-            if ownerApproves and not newOwnerApproves:
-                print('transfer; approval record exists and current owner pre approved transfer; execute transfer')
-                feesCollected = self.do_fee_collection(storage, token, nep5, newOwnerAddress, self.transfer_fee)
-                if feesCollected:
-                    print('feesCollected => do_transfer')
-                    print(approvalRecordKey)
-                    return self.do_transfer(storage, name, ownerAddress, newOwnerAddress, approvalRecordKey)
-                return False
-
+    if isOwnerAddress == False:
+        print('postForSale; caller is not owner of record')
         return False
 
+    if amount > 0:
+        putName(ctx, concat('FORSALE', name), amount)
 
-    def do_fee_collection(self, storage: StorageAPI, token: Token, nep5: NEP5Handler, address, fee):
-        transferArgs = [address, token.owner, fee]
-        feePaid = nep5.handle_nep51('transfer', transferArgs, token, storage)
+    return True
 
+
+def cancelForSale(ctx, name):
+    print('cancelForSale')
+    ownerAddress = getName(ctx, name)
+    isOwnerAddress = CheckWitness(ownerAddress)
+
+    if ownerAddress == b'':
+        print('cancelForSale; record does not exist')
+        return False
+
+    if isOwnerAddress == False:
+        print('cancelForSale; caller is not owner of record')
+        return False
+
+    checkAndDeleteForSale(ctx, name)
+    return True
+
+
+def acceptSale(ctx, name, newOwnerAccount):
+    print('acceptSale')
+    ownerAddress = getName(ctx, name)
+    forSaleRecord = getName(ctx, concat('FORSALE', name))
+    isCallerAddress = CheckWitness(newOwnerAccount)
+
+    if ownerAddress == b'':
+        print('acceptSale; name record does not exist')
+        return False
+
+    if forSaleRecord == b'':
+        print('acceptSale; for sales record does not exist')
+        return False
+
+    if isCallerAddress == False:
+        print('acceptSale; caller is not same as transfer to')
+        return False
+
+    if newOwnerAccount == ownerAddress:
+        print('acceptSale; caller already owns this name')
+        return False
+
+    accountBalance = Get(ctx, newOwnerAccount)
+    requiredBalance = forSaleRecord + NS_REGISTER_FEE
+    if requiredBalance <= accountBalance:
+        feePaid = do_fee_collection(ctx, newOwnerAccount, NS_REGISTER_FEE)
+        saleAmountPaid = do_transfer(ctx, newOwnerAccount, TOKEN_OWNER, forSaleRecord)
+
+        return ns_do_transfer(ctx, name, ownerAddress, newOwnerAccount)
+
+    print('acceptSale; insufficient funds')
+    return False
+
+def checkAndDeleteForSale(ctx, name):
+    forSaleRecord = getName(ctx, concat('FORSALE', name))
+
+    if forSaleRecord != b'':
+        return deleteName(ctx, concat('FORSALE', name))
+
+    return True
+
+
+def postOffer(ctx, name, amount, newOwnerAddress):
+    print('postOffer')
+
+    ownerAddress = getName(ctx, name)
+    if ownerAddress == b'':
+        print('postOffer; record does not exist')
+        return False
+
+    isNewOwnerAddress = CheckWitness(newOwnerAddress)
+    if isNewOwnerAddress == False:
+        print('postOffer; caller is not same as offer address')
+        return False
+
+    if ownerAddress == newOwnerAddress:
+        print('postOffer; you already own this name')
+        return False
+
+    if amount <= 0:
+        print('postOffer; amount needs to be at least 1 HONS')
+        return False
+
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    currentOffer = getName(ctx, nameConcat)
+
+    if currentOffer == amount:
+        print('postOffer; Offer already set at this amount, no update needed')
+        return True
+
+    # no offer exists
+    # put offer amount into escrow
+    # collect transfer fee
+    # create offer record
+    # append offer key to offers array
+    #   TODO: replace once Storage.find is ready
+    if currentOffer == b'':
+        feePaid = do_fee_collection(ctx, newOwnerAddress, amount + NS_TRANSFER_FEE)
         if not feePaid:
-            print('Insufficient funds to pay registration fee')
+            print('postOffer; Insufficient funds to put offer into escrow + registration fee')
             return False
+        putName(ctx, nameConcat, amount)
 
-        print('register; fees paid, record registration')
+        offers = getName(ctx, concat('OFFERS', name))
+        if offers == b'':
+            offers = []
+        else:
+            offers = deserialize_bytearray(offers)
+
+        offers.append(newOwnerAddress)
+        offers = serialize_array(offers)
+        putName(ctx, concat('OFFERS', name), offers)
+
+        return True
+    # current offer already exists
+    # update current offer with new amount
+    variance = amount - currentOffer
+
+    # new offer larger than current OFFER
+    # add to escrow amount
+    # collect transfer fee again
+    # update offer record
+    if variance > 0:
+        feePaid = do_fee_collection(ctx, newOwnerAddress, variance + NS_TRANSFER_FEE)
+        if not feePaid:
+            print('postOffer; Insufficient funds to update escrow + registration fee')
+            return False
+        putName(ctx, nameConcat, amount)
+        return True
+    # new offer is smaller than current offer
+    # withdrawl from escrow
+    # collect transfer fee again
+    # update offer record
+    invertVariance = 0 - variance
+    refund = invertVariance - NS_TRANSFER_FEE
+    # if refund is larger than transfer fee, subtract from refund amount
+    # transfer remainder to newOwnerAddress
+    if refund > 0:
+        feePaid = do_transfer(ctx, TOKEN_OWNER, newOwnerAddress, refund)
+        if not feePaid:
+            print('postOffer; Insufficient funds to update escrow + registration fee')
+            return False
+        putName(ctx, nameConcat, amount)
         return True
 
-
-    def do_transfer(self, storage: StorageAPI, name, ownerAddress, newOwnerAddress, approvalRecordKey):
-
-        didDeleteApprovalKey = self.deleteName(storage, approvalRecordKey)
-
-        print('delete approval record key complated, not removing record from owner list')
-        prevOwnerAddressNameList = self.getName(storage, ownerAddress)
-        if not prevOwnerAddressNameList:
-            print('not possible')
+    # variance amount is less transfer fee, charge new Owner differnce
+    if refund < 0:
+        invertRefund = 0 - refund
+        feePaid = do_fee_collection(ctx, newOwnerAddress, invertRefund)
+        if not feePaid:
+            print('postOffer; Insufficient funds to update escrow + registration fee')
             return False
-        else:
-            prevOwnerAddressNameList = deserialize_bytearray(prevOwnerAddressNameList)
-            prevOwnerAddressNameList = prevOwnerAddressNameList.remove(name)
+        putName(ctx, nameConcat, amount)
+        return True
+    # variance is same as transfer fee, just update offer
+    putName(ctx, nameConcat, amount)
+    return True
 
-        if len(prevOwnerAddressNameList) == 0:
-            didUpdatePrevOwnerList = self.deleteName(storage, ownerAddress)
-            # fails without this print statement?!?!?!
-            print('')
-        else:
-            serializedList = serialize_array(prevOwnerAddressNameList)
-            didUpdatePrevOwnerList = self.putName(storage, ownerAddress, serializedList)
+def cancelOffer(ctx, name, newOwnerAddress):
+    print('cancelOffer')
 
+    isNewOwnerAddress = CheckWitness(newOwnerAddress)
+    if isNewOwnerAddress == False:
+        print('cancelOffer; caller is not same as offer address')
+        return False
 
-        print('removed record from prev owner list, about to add to new owner list')
-        newOwnerAddressNameList = self.getName(storage, newOwnerAddress)
-        if not newOwnerAddressNameList:
-            print('if not addressNameList')
-            newOwnerAddressNameList = []
-        else:
-            newOwnerAddressNameList = deserialize_bytearray(newOwnerAddressNameList)
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    currentOffer = getName(ctx, nameConcat)
 
-        newOwnerAddressNameList = newOwnerAddressNameList.append(name)
-        serializedList = serialize_array(newOwnerAddressNameList)
-        didUpdateNewOwnerList = self.putName(storage, newOwnerAddress, serializedList)
+    if currentOffer == b'':
+        print('cancelOffer; there is no offer record to cancel')
+        return False
 
+    # refund amount from escrow to new owner
+    # remove record
+    # remove offer from offers collection
+    #   TODO: remove this step once Storage.find is avail
+    do_transfer(ctx, TOKEN_OWNER, newOwnerAddress, currentOffer)
+    deleteName(ctx, nameConcat)
 
-        print('name added to new owner list')
-        didOverwriteNameRecord = self.putName(storage, name, newOwnerAddress)
+    offers = getName(ctx, concat('OFFERS', name))
+    offers = removeItem(offers, newOwnerAddress)
 
-        return didDeleteApprovalKey and didUpdatePrevOwnerList and didUpdateNewOwnerList and didOverwriteNameRecord
+    if offers == []:
+        deleteName(ctx, concat('OFFERS', name))
+    else:
+        offers = serialize_array(offers)
+        putName(ctx, concat('OFFERS', name), offers)
 
+    return True
 
-    def do_register(self, storage: StorageAPI, name, newOwnerAddress):
-        # get current list of names for ownerAddress
-        # append name to list
-        # put list back
-        # put name -> address record
-        print('do_register')
-        addressNameList = self.getName(storage, newOwnerAddress)
-        if not addressNameList:
-            print('if not addressNameList')
-            addressNameList = []
-        else:
-            addressNameList = deserialize_bytearray(addressNameList)
+def findOffers(ctx, name):
+    print('findOffers')
+    return getName(ctx, concat('OFFERS', name))
 
-        addressNameList = addressNameList.append(name)
-        serializedList = serialize_array(addressNameList)
-        putListSuccess = self.putName(storage, newOwnerAddress, serializedList)
-        putNameSuccess = self.putName(storage, name, newOwnerAddress)
-        return putListSuccess and putNameSuccess
+def getOffer(ctx, name, newOwnerAddress):
+    print('getOffer')
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    return getName(ctx, nameConcat)
 
+def acceptOffer(ctx, name, newOwnerAddress):
+    print('acceptOffer')
 
-    def do_unregister(self, storage: StorageAPI, name, ownerAddress):
-        # get current list of names for ownerAddress
-        # delete name from list
-        # put list back
-        # delete name -> address record
-        print('do_unregister')
-        addressNameList = self.getName(storage, ownerAddress)
-        if not addressNameList:
-            print('not possible')
+    ownerAddress = getName(ctx, name)
+    if ownerAddress == b'':
+        print('acceptOffer; record does not exist')
+        return False
+
+    isOwnerAddress = CheckWitness(ownerAddress)
+    if isOwnerAddress == False:
+        print('acceptOffer; caller is not same as owner address')
+        return False
+
+    nameConcat = concat(name, newOwnerAddress)
+    nameConcat = concat('OFFER', nameConcat)
+    offer = getName(ctx, nameConcat)
+
+    if offer == b'':
+        print('acceptOffer; this offer does not exist')
+        return False
+
+    # transfer funds from escrow to old owner for amount of offer - trans fee
+    if offer > NS_TRANSFER_FEE:
+        do_transfer(ctx, TOKEN_OWNER, ownerAddress, offer - NS_TRANSFER_FEE)
+    # if trans fee if more than offer, collect fee diff from old owner
+    elif offer < NS_TRANSFER_FEE:
+        feePaid = do_fee_collection(ctx, ownerAddress, NS_TRANSFER_FEE - offer)
+        if not feePaid:
+            print('acceptOffer; Insufficient funds for transfer fee')
             return False
-        else:
-            addressNameList = deserialize_bytearray(addressNameList)
-            addressNameList = addressNameList.remove(name)
 
-        if len(addressNameList) == 0:
-            updateListSuccess = self.deleteName(storage, ownerAddress)
-            # fails without this print statement?!?!?!
-            print('')
-        else:
-            serializedList = serialize_array(addressNameList)
-            updateListSuccess = self.putName(storage, ownerAddress, serializedList)
+    # transfer name
+    # delete offer and remove from list
+    print('acceptOffer; amount moved from escrow to owner, transfer name')
+    nameTransferSuccess = ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress)
 
-        deleteNameSuccess = self.deleteName(storage, name)
-        return updateListSuccess and deleteNameSuccess
+    print('acceptOffer; delete offer record')
+    deleteName(ctx, nameConcat)
 
+    print('acceptOffer; get offers list for name')
+    offers = getName(ctx, concat('OFFERS', name))
 
-    def putName(self, storage: StorageAPI, key, value):
-        print('putName')
-        prefixedKey = self.prefixStorageKey(key)
-        print(prefixedKey)
-        print(key)
-        sucess = storage.put(prefixedKey, value)
-        print('sucess')
-        print(sucess)
-        return True
+    print('acceptOffer; deserialize offers list from storage')
+    offers = deserialize_bytearray(offers)
 
+    print('acceptOffer; remove accepted offer from list')
+    offers = removeItem(offers, newOwnerAddress)
 
-    def getName(self, storage: StorageAPI, key):
-        print('getName')
-        prefixedKey = self.prefixStorageKey(key)
-        print('prefixedKey')
-        print(prefixedKey)
-        obj = storage.get(prefixedKey)
-        Notify(obj)
-        return obj
+    if len(offers) == 0:
+        print('acceptOffer; delete offer list since none remain')
+        result = deleteName(ctx, concat('OFFERS', name))
+    else:
+        print('acceptOffer; serialize updated offer list')
+        offers = serialize_array(offers)
+        print('acceptOffer; put updated list back into storage')
+        result = putName(ctx, concat('OFFERS', name), offers)
+
+    return True
 
 
-    def deleteName(self, storage: StorageAPI, key):
-        print('deleteName')
-        prefixedKey = self.prefixStorageKey(key)
-        print('prefixedKey')
-        storage.delete(prefixedKey)
-        print('deleteName; done delete')
-        return True
+def do_fee_collection(ctx, address, fee):
+    feePaid = do_transfer(ctx, address, TOKEN_OWNER, fee)
+
+    if not feePaid:
+        print('Insufficient funds to pay registration fee')
+        return False
+
+    print('do_fee_collection; fees paid successfully')
+    return True
 
 
-    def prefixStorageKey(self, key):
-        print('prefixStorageKey')
-        print(key)
-        cat = concat(self.storagePrefix, key)
-        print(self.storagePrefix)
-        print(cat)
-        return cat
+def ns_do_transfer(ctx, name, ownerAddress, newOwnerAddress):
+
+    checkAndDeleteForSale(ctx, name)
+
+    prevOwnerAddressNameList = getName(ctx, ownerAddress)
+    if not prevOwnerAddressNameList:
+        print('not possible')
+        return False
+    else:
+        prevOwnerAddressNameList = deserialize_bytearray(prevOwnerAddressNameList)
+        newList = removeItem(prevOwnerAddressNameList, name)
+
+    if len(newList) == 0:
+        deleteName(ctx, ownerAddress)
+        # fails without this print statement?!?!?!
+        print('')
+    else:
+        serializedList = serialize_array(newList)
+        putName(ctx, ownerAddress, serializedList)
+
+
+    print('removed record from prev owner list, about to add to new owner list')
+    newOwnerAddressNameList = getName(ctx, newOwnerAddress)
+    if newOwnerAddressNameList == b'':
+        print('if not addressNameList')
+        newOwnerAddressNameList = []
+    else:
+        newOwnerAddressNameList = deserialize_bytearray(newOwnerAddressNameList)
+
+    newOwnerAddressNameList = addItem(newOwnerAddressNameList, name)
+    serializedList = serialize_array(newOwnerAddressNameList)
+    putName(ctx, newOwnerAddress, serializedList)
+
+
+    print('name added to new owner list')
+    putName(ctx, name, newOwnerAddress)
+
+    return True
+
+
+def ns_do_register(ctx, name, newOwnerAddress):
+    # get current list of names for ownerAddress
+    # append name to list
+    # put list back
+    # put name -> address record
+    print('ns_do_register')
+    addressNameList = getName(ctx, newOwnerAddress)
+    if addressNameList == b'':
+        print('if not addressNameList')
+        addressNameList = [name]
+    else:
+        addressNameList = deserialize_bytearray(addressNameList)
+        addressNameList = addItem(addressNameList, name)
+
+    serializedList = serialize_array(addressNameList)
+    putName(ctx, newOwnerAddress, serializedList)
+    putName(ctx, name, newOwnerAddress)
+    return True
+
+
+def ns_do_unregister(ctx, name, ownerAddress):
+    # get current list of names for ownerAddress
+    # delete name from list
+    # put list back
+    # delete name -> address record
+    print('ns_do_unregister')
+    addressNameList = getName(ctx, ownerAddress)
+
+    if addressNameList == b'':
+        print('not possible')
+        return False
+
+    else:
+        addressNameList = deserialize_bytearray(addressNameList)
+        # previously used Array.remove function before python 3.6 neo-boa 0.3.7
+        # however does not appear to be working anymore
+        # addressNameList = addressNameList.remove(name)
+        newList = removeItem(addressNameList, name)
+
+    if len(newList) == 0:
+        deleteName(ctx, ownerAddress)
+        # fails without this print statement?!?!?!
+        print('')
+    else:
+        serializedList = serialize_array(newList)
+        putName(ctx, ownerAddress, serializedList)
+
+    deleteName(ctx, name)
+    return True
+
+
+# def findName(ctx, query):
+#     return Find(ctx, prefixStorageKey(query))
+
+
+def putName(ctx, key, value):
+    return Put(ctx, prefixStorageKey(key), value)
+
+
+def getName(ctx, key):
+    return Get(ctx,  prefixStorageKey(key))
+
+
+def deleteName(ctx, key):
+    return Delete(ctx, prefixStorageKey(key))
+
+
+def prefixStorageKey(key):
+    return concat(NS_STORAGE_PREFIX, key)
