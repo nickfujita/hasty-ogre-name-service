@@ -57,9 +57,6 @@ function fetchNames(address) {
       if (!isEqual(currentNames, names)) {
         Promise.all(names.map(queryForSale))
         .then(forSaleAmounts => {
-          // if (forSaleAmounts) {
-          //   debugger;
-          // }
           return names.reduce((accum, name, index) => {
             accum[name] = forSaleAmounts[index];
             return accum;
