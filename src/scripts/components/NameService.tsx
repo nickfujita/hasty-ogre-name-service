@@ -1,13 +1,14 @@
 import * as React from 'react';
 import * as Redux from 'redux';
-import { registerName, unregisterName, requestTransfer } from '../actions/nameService';
-import { queryName } from '../api/nameService';
+import { registerName, unregisterName, requestTransfer, acceptSale } from '../actions/nameService';
+import { queryName, queryForSale } from '../api/nameService';
 import RegisteredName from './RegisteredName';
+import { NamesMap } from './wallet';
 
 interface NameServiceProps extends React.Props<any> {
   dispatch: Redux.Dispatch<any>;
   address: string;
-  names: string[];
+  names: NamesMap;
 }
 
 class NameService extends React.Component<NameServiceProps, any> {
@@ -18,6 +19,7 @@ class NameService extends React.Component<NameServiceProps, any> {
 
     this.state = {
       currentNameOwner: null,
+      forSaleAmount: null,
     };
   }
 
@@ -25,15 +27,19 @@ class NameService extends React.Component<NameServiceProps, any> {
     this.handleNameLookup = this.handleNameLookup.bind(this);
     this.handleRegister = this.handleRegister.bind(this);
     this.handleTransfer = this.handleTransfer.bind(this);
+    this.handleAcceptSale = this.handleAcceptSale.bind(this);
   }
 
   handleNameLookup() {
     const value = this.nameInput.value;
-    queryName(value)
-    .then(address => {
+    Promise.all([queryName(value), queryForSale(value)])
+    .then(responses => {
+      const address = responses[0];
+      const saleAmount = responses[1];
       this.setState({
         ...this.state,
         currentNameOwner: address,
+        forSaleAmount: saleAmount,
       });
     });
   }
@@ -55,11 +61,21 @@ class NameService extends React.Component<NameServiceProps, any> {
     this.clearRegistration();
   }
 
+  handleAcceptSale() {
+    const {dispatch, address} = this.props;
+    const {forSaleAmount} = this.state;
+    const name = this.nameInput.value;
+    name && forSaleAmount && dispatch(acceptSale(name, address));
+    alert(`Your request buy name: ${name} from the current owner, for ${forSaleAmount} hons, has been submitted. Please wait until the next block to for confirmation.`);
+    this.clearRegistration();
+  }
+
   clearRegistration() {
     this.nameInput.value = null;
     this.setState({
       ...this.state,
       currentNameOwner: null,
+      forSaleAmount: null,
     });
   }
 
@@ -83,16 +99,26 @@ class NameService extends React.Component<NameServiceProps, any> {
   }
 
   renderRegisterForm() {
-    const {currentNameOwner} = this.state;
+    const {currentNameOwner, forSaleAmount} = this.state;
     if (this.nameInput && this.nameInput.value && !currentNameOwner) {
       return (
         <button onClick={this.handleRegister}>Register now</button>
       );
     }
 
-    if (this.nameInput && this.nameInput.value && currentNameOwner) {
+    if (this.nameInput && this.nameInput.value && currentNameOwner && !forSaleAmount) {
       return (
         <button onClick={this.handleTransfer}>Request transfer</button>
+      );
+    }
+
+    if (this.nameInput && this.nameInput.value && currentNameOwner && forSaleAmount) {
+      return (
+        <div>
+          <button onClick={this.handleTransfer}>Request transfer</button>
+          <div>{`Posted for sale by owner for: ${forSaleAmount} hons`}</div>
+          <button onClick={this.handleAcceptSale}>Buy</button>
+        </div>
       );
     }
   }
@@ -103,13 +129,14 @@ class NameService extends React.Component<NameServiceProps, any> {
       <div className='names-list'>
         My registered names:
         <ul>
-          {names && names.map((name, index) => {
+          {names && Object.keys(names).map((name, index) => {
             return (
               <li className='names-list-item' key={index}>
                 <RegisteredName
                   dispatch={dispatch}
                   address={address}
                   name={name}
+                  saleAmount={names[name]}
                 />
               </li>
             );

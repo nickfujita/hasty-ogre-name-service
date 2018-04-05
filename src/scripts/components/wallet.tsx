@@ -12,11 +12,15 @@ interface WalletProps extends React.Props<any> {
   dispatch: Redux.Dispatch<any>;
   address: string;
   balances: Balances;
-  names: string[];
+  names: NamesMap;
 }
 
 interface Balances {
   [key: string]: number;
+}
+
+export interface NamesMap {
+  [key: string]: number|undefined;
 }
 
 class Wallet extends React.Component<WalletProps, any> {

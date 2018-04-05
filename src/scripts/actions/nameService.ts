@@ -60,3 +60,42 @@ export function requestTransfer(name, callerAddress, fromAddress, toAddress) {
     nameService.requestTransfer(name, callerAccountObj, fromAddress, toAddress);
   };
 }
+
+export function postForSale(name, callerAddress, amount) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.postForSale(name, callerAccountObj, amount);
+  };
+}
+
+export function cancelForSale(name, callerAddress) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.cancelForSale(name, callerAccountObj);
+  };
+}
+
+export function acceptSale(name, callerAddress) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.acceptSale(name, callerAccountObj, callerAddress);
+  };
+}
