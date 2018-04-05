@@ -80,13 +80,15 @@ export function requestTransfer(name, callerAccountObj, fromAddress, toAddress) 
 export function queryForSale(name): Promise<number> {
   const method = 'nameServiceQueryForSale';
   const parsedName = sc.ContractParam.string(name);
-  return readInvokeHons(method, [parsedName]);
+  return readInvokeHons(method, [parsedName])
+  .then(u.fixed82num);
 }
 
 export function postForSale(name, addressObj, amount) {
   const method = 'nameServicePostForSale';
   const parsedName = sc.ContractParam.string(name);
-  invokeHons(addressObj, method, [parsedName, amount]);
+  const parsedAmount = sc.ContractParam.byteArray(amount, 'fixed8');
+  invokeHons(addressObj, method, [parsedName, parsedAmount]);
 }
 
 export function cancelForSale(name, addressObj) {
