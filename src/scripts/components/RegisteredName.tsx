@@ -5,13 +5,16 @@ import {
   preApproveTransfer,
   postForSale,
   cancelForSale,
+  acceptOffer,
 } from '../actions/nameService';
+import { Offers } from './wallet';
 
 interface RegisteredNameProps extends React.Props<any> {
   dispatch: Redux.Dispatch<any>;
   address: string;
   name: string;
   saleAmount: number;
+  offers: Offers;
 }
 
 class RegisteredName extends React.Component<RegisteredNameProps, any> {
@@ -31,6 +34,13 @@ class RegisteredName extends React.Component<RegisteredNameProps, any> {
     this.handleTransfer = this.handleTransfer.bind(this);
     this.handleForSale = this.handleForSale.bind(this);
     this.handleCancelForSale = this.handleCancelForSale.bind(this);
+    this.handleAcceptOffer = this.handleAcceptOffer.bind(this);
+  }
+
+  handleAcceptOffer(newOwnerAddress) {
+    const {dispatch, address, name, offers} = this.props;
+    dispatch(acceptOffer(name, address, newOwnerAddress));
+    alert(`Your request accept the offer from ${newOwnerAddress} for the name: ${name} for ${offers[newOwnerAddress]} hons has been submitted. Please wait until the next block to for confirmation.`);
   }
 
   handleForSale() {
@@ -101,12 +111,30 @@ class RegisteredName extends React.Component<RegisteredNameProps, any> {
     );
   }
 
+  renderOffers() {
+    const {offers} = this.props;
+    return offers && (
+      <div>
+        <h4>Offers:</h4>
+        {Object.keys(offers).map((address, index) => {
+          return (
+            <div key={`offer${index}`}>
+              {`Offer from ${address} for: ${offers[address]} hons `}
+              <button className='name-button' onClick={() => this.handleAcceptOffer(address)}>Accept</button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   render() {
     return (
       <div className='registered-name'>
         <div className='name-text'>{this.props.name}</div>
         {this.renderTransfer()}
         {this.renderForSale()}
+        {this.renderOffers()}
       </div>
     );
   }

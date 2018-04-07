@@ -20,7 +20,16 @@ interface Balances {
 }
 
 export interface NamesMap {
-  [key: string]: number|undefined;
+  [key: string]: NameAttributes;
+}
+
+interface NameAttributes {
+  saleAmount: number;
+  offers: Offers;
+}
+
+export interface Offers {
+  [key: string]: number;
 }
 
 class Wallet extends React.Component<WalletProps, any> {

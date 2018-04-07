@@ -1,7 +1,14 @@
 import * as React from 'react';
 import * as Redux from 'redux';
-import { registerName, unregisterName, requestTransfer, acceptSale } from '../actions/nameService';
-import { queryName, queryForSale } from '../api/nameService';
+import {
+  registerName,
+  unregisterName,
+  requestTransfer,
+  acceptSale,
+  postOffer,
+  cancelOffer,
+} from '../actions/nameService';
+import { queryName, queryForSale, getOffer } from '../api/nameService';
 import RegisteredName from './RegisteredName';
 import { NamesMap } from './wallet';
 
@@ -13,6 +20,7 @@ interface NameServiceProps extends React.Props<any> {
 
 class NameService extends React.Component<NameServiceProps, any> {
   private nameInput;
+  private offerInput;
 
   constructor(state, props) {
     super(state, props);
@@ -20,6 +28,7 @@ class NameService extends React.Component<NameServiceProps, any> {
     this.state = {
       currentNameOwner: null,
       forSaleAmount: null,
+      offerAmount: null,
     };
   }
 
@@ -28,18 +37,22 @@ class NameService extends React.Component<NameServiceProps, any> {
     this.handleRegister = this.handleRegister.bind(this);
     this.handleTransfer = this.handleTransfer.bind(this);
     this.handleAcceptSale = this.handleAcceptSale.bind(this);
+    this.handleOfferSubmit = this.handleOfferSubmit.bind(this);
+    this.handleCancelOffer = this.handleCancelOffer.bind(this);
   }
 
   handleNameLookup() {
     const value = this.nameInput.value;
-    Promise.all([queryName(value), queryForSale(value)])
+    Promise.all([queryName(value), queryForSale(value), getOffer(value, this.props.address)])
     .then(responses => {
       const address = responses[0];
       const saleAmount = responses[1];
+      const offerAmount = responses[2];
       this.setState({
         ...this.state,
         currentNameOwner: address,
         forSaleAmount: saleAmount,
+        offerAmount,
       });
     });
   }
@@ -70,12 +83,30 @@ class NameService extends React.Component<NameServiceProps, any> {
     this.clearRegistration();
   }
 
+  handleOfferSubmit() {
+    const {dispatch, address} = this.props;
+    const name = this.nameInput.value;
+    const offerAmount = this.offerInput.value;
+    name && offerAmount && dispatch(postOffer(name, address, offerAmount));
+    alert(`Your request submit and offer for name: ${name} from the current owner, for ${offerAmount} hons, has been submitted. Please wait until the next block to for confirmation.`);
+    this.clearRegistration();
+  }
+
+  handleCancelOffer() {
+    const {dispatch, address} = this.props;
+    const name = this.nameInput.value;
+    name && dispatch(cancelOffer(name, address));
+    alert(`Your request cancel the current offer for name: ${name} from the current owner has been submitted. Please wait until the next block to for confirmation.`);
+    this.clearRegistration();
+  }
+
   clearRegistration() {
     this.nameInput.value = null;
     this.setState({
       ...this.state,
       currentNameOwner: null,
       forSaleAmount: null,
+      offerAmount: null,
     });
   }
 
@@ -94,33 +125,60 @@ class NameService extends React.Component<NameServiceProps, any> {
       <div>
         <div>{currentNameOwner ? `This name is already taken by: ${currentNameOwner}` : this.nameInput && this.nameInput.value ? 'This name is free, would you like to register?' : ''}</div>
         {this.renderRegisterForm()}
+        {this.renderOfferForm()}
       </div>
     );
   }
 
   renderRegisterForm() {
     const {currentNameOwner, forSaleAmount} = this.state;
-    if (this.nameInput && this.nameInput.value && !currentNameOwner) {
+    if (!this.nameInput || !this.nameInput.value) {
+      return;
+    }
+
+    if (!currentNameOwner) {
       return (
         <button onClick={this.handleRegister}>Register now</button>
       );
     }
 
-    if (this.nameInput && this.nameInput.value && currentNameOwner && !forSaleAmount) {
+    if (!forSaleAmount) {
       return (
         <button onClick={this.handleTransfer}>Request transfer</button>
       );
     }
 
-    if (this.nameInput && this.nameInput.value && currentNameOwner && forSaleAmount) {
+    return (
+      <div>
+        <button onClick={this.handleTransfer}>Request transfer</button>
+        <div>{`Posted for sale by owner for: ${forSaleAmount} hons`}</div>
+        <button onClick={this.handleAcceptSale}>Buy</button>
+      </div>
+    );
+  }
+
+  renderOfferForm() {
+    const {currentNameOwner, offerAmount} = this.state;
+
+    if (!this.nameInput || !this.nameInput.value || !currentNameOwner) {
+      return;
+    }
+
+    if (!offerAmount) {
       return (
         <div>
-          <button onClick={this.handleTransfer}>Request transfer</button>
-          <div>{`Posted for sale by owner for: ${forSaleAmount} hons`}</div>
-          <button onClick={this.handleAcceptSale}>Buy</button>
+          {this.renderInputField('Place offer on name: ', 'offerInput')}
+          <button onClick={this.handleOfferSubmit}>Submit</button>
         </div>
       );
     }
+
+    return (
+      <div>
+        <div>{`Posted offer for: ${offerAmount} hons`}</div>
+        <button onClick={this.handleCancelOffer}>Cancel</button>
+      </div>
+    );
   }
 
   renderNames() {
@@ -130,13 +188,15 @@ class NameService extends React.Component<NameServiceProps, any> {
         My registered names:
         <ul>
           {names && Object.keys(names).map((name, index) => {
+            const nameAttributes = names[name];
             return (
               <li className='names-list-item' key={index}>
                 <RegisteredName
                   dispatch={dispatch}
                   address={address}
                   name={name}
-                  saleAmount={names[name]}
+                  saleAmount={nameAttributes.saleAmount}
+                  offers={nameAttributes.offers}
                 />
               </li>
             );

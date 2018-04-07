@@ -107,8 +107,9 @@ export function acceptSale(name, addressObj, newOwnerAccount) {
 export function postOffer(name, addressObj, amount) {
   const method = 'nameServicePostOffer';
   const parsedName = sc.ContractParam.string(name);
+  const parsedAmount = sc.ContractParam.byteArray(amount, 'fixed8');
   const scNewOwnerAccount = sc.ContractParam.byteArray(addressObj.address, 'address');
-  invokeHons(addressObj, method, [parsedName, amount, scNewOwnerAccount]);
+  invokeHons(addressObj, method, [parsedName, parsedAmount, scNewOwnerAccount]);
 }
 
 export function cancelOffer(name, addressObj) {
@@ -126,22 +127,41 @@ export function findOffers(name): Promise<any> {
     if (res) {
       let items = deserializeBytearray(res);
       return items.map(item => {
-        const scriptHash = u.reverseHex(item);
-        return wallet.getAddressFromScriptHash(scriptHash);
+        debugger;
+        // const scriptHash = u.reverseHex(item);
+        return wallet.getAddressFromScriptHash(item);
       });
     }
+  })
+  .then(offerAddresses => {
+    debugger;
+    return offerAddresses && offerAddresses.map(address => {
+      return getOffer(name, address)
+      .then(amount => [address, amount]);
+    });
+  })
+  .then(offers => {
+    return offers && offers.reduce((accum, offer) => {
+      accum[offer[0]] = offer[1];
+      return accum;
+    }, {});
   });
 }
 
-export function getOffer(name): Promise<number> {
+export function getOffer(name, address): Promise<number> {
   const method = 'nameServiceGetOffer';
   const parsedName = sc.ContractParam.string(name);
-  return readInvokeHons(method, [parsedName]);
+  const parsedAddress = sc.ContractParam.byteArray(address, 'address');
+  return readInvokeHons(method, [parsedName, parsedAddress])
+  .then(res => {
+    debugger;
+    return u.fixed82num(res);
+  });
 }
 
-export function acceptOffer(name, addressObj) {
+export function acceptOffer(name, addressObj, newOwnerAddress) {
   const method = 'nameServiceAcceptOffer';
   const parsedName = sc.ContractParam.string(name);
-  const scNewOwnerAccount = sc.ContractParam.byteArray(addressObj.address, 'address');
-  invokeHons(addressObj, method, [parsedName, scNewOwnerAccount]);
+  const scNewOwnerAddress = sc.ContractParam.byteArray(newOwnerAddress, 'address');
+  invokeHons(addressObj, method, [parsedName, scNewOwnerAddress]);
 }

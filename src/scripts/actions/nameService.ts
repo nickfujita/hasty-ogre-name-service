@@ -99,3 +99,42 @@ export function acceptSale(name, callerAddress) {
     nameService.acceptSale(name, callerAccountObj, callerAddress);
   };
 }
+
+export function postOffer(name, callerAddress, amount) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.postOffer(name, callerAccountObj, amount);
+  };
+}
+
+export function cancelOffer(name, callerAddress) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.cancelOffer(name, callerAccountObj);
+  };
+}
+
+export function acceptOffer(name, callerAddress, newOwnerAddress) {
+  return (dispatch, getState) => {
+    const {wallets} = getState().neo;
+    const privateKey = wallets[callerAddress];
+    const callerAccountObj = {
+      address: callerAddress,
+      privateKey,
+    };
+
+    nameService.acceptOffer(name, callerAccountObj, newOwnerAddress);
+  };
+}

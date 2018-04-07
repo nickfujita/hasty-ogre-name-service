@@ -8,7 +8,7 @@ import { isEqual } from 'lodash';
 import { fetchTokenDetails, fetchAllTokenBalances } from './nep5';
 import Neon, { u, wallet, sc, api } from '@cityofzion/neon-js';
 import { nep5Tokens } from '../constants/test';
-import { queryAddress, queryForSale } from '../api/nameService';
+import { queryAddress, queryForSale, findOffers } from '../api/nameService';
 
 let balanceRefresher;
 
@@ -55,10 +55,18 @@ function fetchNames(address) {
       const {walletNames} = getState().neo;
       const currentNames = walletNames[address];
       if (!isEqual(currentNames, names)) {
-        Promise.all(names.map(queryForSale))
-        .then(forSaleAmounts => {
+        Promise.all(names.map(name => {
+          return Promise.all([queryForSale(name), findOffers(name)]);
+        }))
+        .then(res => {
           return names.reduce((accum, name, index) => {
-            accum[name] = forSaleAmounts[index];
+            const results = res[index];
+            const saleAmount = results[0];
+            const offers = results[1];
+            accum[name] = {
+              saleAmount,
+              offers,
+            };
             return accum;
           }, {});
         })
